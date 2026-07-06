@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Local LLM Chat</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    #log { white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; min-height: 200px; margin-bottom: 1rem; }
+    .q { font-weight: bold; }
+    textarea { width: 100%; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>Local LLM Chat (qwen3:8b via Ollama)</h1>
+  <div id="log"></div>
+  <form id="f">
+    <textarea id="prompt" rows="3" placeholder="Type your prompt..." required></textarea>
+    <button type="submit" id="send">Send</button>
+  </form>
+
+  <script>
+    const form = document.getElementById("f");
+    const log = document.getElementById("log");
+    const promptBox = document.getElementById("prompt");
+    const sendBtn = document.getElementById("send");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const prompt = promptBox.value.trim();
+      if (!prompt) return;
+      log.textContent += "You: " + prompt + "\n\n";
+      promptBox.value = "";
+      sendBtn.disabled = true;
+      sendBtn.textContent = "Thinking...";
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+        const data = await res.json();
+        log.textContent += "Model: " + (data.answer || data.error) + "\n\n";
+      } catch (err) {
+        log.textContent += "Error: " + err + "\n\n";
+      }
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send";
+      log.scrollTop = log.scrollHeight;
+    });
+  </script>
+</body>
+</html>
