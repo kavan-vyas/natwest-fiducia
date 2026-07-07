@@ -21,6 +21,26 @@ I want to keep Javascript to a minimal. And use python for the more intuitive ba
 ALSO the model in python that I will build WILL avoid biases and have "prefer not to say" so a male with all same categories will have same exact as a female with all same catefgories, historicl doesnt represent.
 Then this also needs to have a switch to a nice manual form filling experience available. but implement later.
 
+---
+### Framework
+This is the overall framework and general direction we built this in:
+
+HTML (chat / manual form toggle, minimal JS)
+        │
+        ▼
+FastAPI (uvicorn)
+        │
+        ├──► conversation.py ──► Ollama (structured JSON output)
+        │           │
+        │           ▼
+        ├──► db.py ── sessions (live memory) + conversation_log (audit) + structured table
+        │
+        ▼
+scoring.py (pure functions, no AI) ──► score + breakdown
+        │
+        ▼
+report.html (server-rendered)
+---
 ### Original problem statement
 
 ```
