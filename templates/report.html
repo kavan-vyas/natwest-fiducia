@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FIDUCIA — Risk Report</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 1rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
+    th { background: #eee; }
+    .cat-Low { color: green; } .cat-Medium { color: #b8860b; } .cat-High { color: red; }
+    .num { text-align: right; }
+    footer { font-size: 0.8rem; color: #666; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Credit Risk Report</h1>
+
+  <h2>Result: <span class="cat-{{ result.category }}">{{ result.category }} risk</span>
+      — {{ result.total_score }} / 100</h2>
+
+  <h3>Per-factor breakdown</h3>
+  <table>
+    <tr><th>Category</th><th class="num">Weight</th><th class="num">Sub-score (0–100)</th>
+        <th class="num">Weighted points</th><th>Basis</th></tr>
+    {% for row in result.breakdown %}
+    <tr>
+      <td>{{ row.label }}</td>
+      <td class="num">{{ "%.2f"|format(row.weight) }}%</td>
+      <td class="num">{{ row.sub_score }}</td>
+      <td class="num">{{ row.weighted_points }}</td>
+      <td>{{ row.note }}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <th>Total</th><th class="num">100.00%</th><th></th>
+      <th class="num">{{ result.total_score }}</th><th></th>
+    </tr>
+  </table>
+
+  <h3>Inputs used</h3>
+  <table>
+    {% for key, value in profile.items() %}
+    <tr><td>{{ labels.get(key, key) }}</td><td>{{ value }}</td></tr>
+    {% endfor %}
+  </table>
+
+  <p><a href="/">← Back to chat</a></p>
+
+  <footer>
+    Session {{ session_id }}. Simplified coursework simulation — not a real credit
+    assessment; no payment-history bureau data, self-declared fields are unverified
+    and down-weighted accordingly. The score is a fixed, auditable formula
+    (scoring.py); the conversational AI never influences it. Employment sector is
+    recorded for context but deliberately not scored.
+  </footer>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FIDUCIA — Credit Risk Chat</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 1rem; }
+    #wrap { display: flex; gap: 2rem; }
+    #chatcol { flex: 2; }
+    #sidecol { flex: 1; font-size: 0.9rem; }
+    #log { border: 1px solid #999; padding: 1rem; height: 400px; overflow-y: auto; white-space: pre-wrap; }
+    .u { color: #003366; font-weight: bold; }
+    .a { color: #222; }
+    textarea { width: 100%; box-sizing: border-box; margin-top: 0.5rem; }
+    #fieldlist { list-style: none; padding-left: 0; }
+    #fieldlist li { margin: 2px 0; }
+    .done { color: green; }
+    .todo { color: #888; }
+    #reportlink { display: none; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>FIDUCIA</h1>
+  <p>Local credit risk prototype. The assistant only collects data — a separate
+     deterministic formula computes the score. Nothing leaves this machine.</p>
+
+  <div id="wrap">
+    <div id="chatcol">
+      <div id="log"></div>
+      <form id="f">
+        <textarea id="msg" rows="3" placeholder="Type your answer..." required></textarea>
+        <button type="submit" id="send">Send</button>
+        <button type="button" id="reset">New session</button>
+      </form>
+      <p><a id="reportlink" href="#">View your report →</a></p>
+    </div>
+    <div id="sidecol">
+      <h3>Required information</h3>
+      <ul id="fieldlist"></ul>
+    </div>
+  </div>
+
+  <script>
+    const log = document.getElementById("log");
+    const msg = document.getElementById("msg");
+    const send = document.getElementById("send");
+    const fieldlist = document.getElementById("fieldlist");
+    const reportlink = document.getElementById("reportlink");
+    let sessionId = localStorage.getItem("fiducia_session");
+
+    function addLine(role, text) {
+      const div = document.createElement("div");
+      div.className = role === "user" ? "u" : "a";
+      div.textContent = (role === "user" ? "You: " : "FIDUCIA: ") + text + "\n";
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function renderStatus(data) {
+      fieldlist.innerHTML = "";
+      const all = data.filled.concat(data.missing);
+      for (const name of all) {
+        const li = document.createElement("li");
+        const done = data.filled.includes(name);
+        li.className = done ? "done" : "todo";
+        li.textContent = (done ? "✓ " : "• ") + data.labels[name];
+        fieldlist.appendChild(li);
+      }
+      if (data.complete && data.report_url) {
+        reportlink.href = data.report_url;
+        reportlink.style.display = "inline";
+      }
+    }
+
+    async function startSession() {
+      const res = await fetch("/api/session", { method: "POST" });
+      const data = await res.json();
+      sessionId = data.session_id;
+      localStorage.setItem("fiducia_session", sessionId);
+      log.innerHTML = "";
+      reportlink.style.display = "none";
+      addLine("assistant", data.reply);
+      renderStatus(data);
+    }
+
+    async function resumeSession() {
+      const res = await fetch("/api/session/" + sessionId);
+      if (!res.ok) return startSession();
+      const data = await res.json();
+      log.innerHTML = "";
+      for (const m of data.messages) addLine(m.role, m.content);
+      renderStatus(data);
+    }
+
+    document.getElementById("f").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = msg.value.trim();
+      if (!text) return;
+      addLine("user", text);
+      msg.value = "";
+      send.disabled = true;
+      send.textContent = "Thinking...";
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, message: text }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          addLine("assistant", "[error] " + (data.detail || res.status));
+        } else {
+          addLine("assistant", data.reply);
+          renderStatus(data);
+        }
+      } catch (err) {
+        addLine("assistant", "[error] " + err);
+      }
+      send.disabled = false;
+      send.textContent = "Send";
+    });
+
+    document.getElementById("reset").addEventListener("click", startSession);
+
+    if (sessionId) { resumeSession(); } else { startSession(); }
+  </script>
+</body>
+</html>
