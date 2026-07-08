@@ -10,10 +10,14 @@ methodology.md (importance 1-5 x reliability multiplier, normalised to
 100%). They must not be changed here without changing the methodology.
 
 Every category sub-score is on a 0-100 scale where HIGHER = LOWER RISK.
-The total is the weighted sum, mapped to a category:
-    total >= 70  -> Low risk
-    total >= 45  -> Medium risk
-    otherwise    -> High risk
+The weighted sum of those sub-scores (0-100) is scaled by SCALE = 10 so the
+final credit score runs 0-1000, then mapped to one of five bands
+(HIGHER SCORE = BETTER CREDITWORTHINESS = LOWER RISK):
+    811-1000 -> Excellent
+    671-810  -> Very Good
+    531-670  -> Good
+    439-530  -> Fair
+    0-438    -> Poor
 
 Note on employment_sector: it is collected for context and shown on the
 report, but deliberately NOT scored — ranking sectors by "stability"
@@ -33,6 +37,40 @@ WEIGHTS: dict[str, float] = {
     "dependents_burden": 4.46,
     "recent_credit_activity": 2.68,
 }
+
+# Final score runs 0-1000. Category sub-scores stay on 0-100; the weighted
+# sum (0-100) is multiplied by this to reach the 0-1000 scale.
+SCALE: float = 10.0
+
+# Five-band classification on the 0-1000 scale. Ordered high -> low; the first
+# band whose lower bound the score meets or exceeds is the match. Each entry:
+# (lower_bound, key, label, blurb). `key` is a CSS/JS-safe slug.
+RISK_BANDS: list[tuple[int, str, str, str]] = [
+    (811, "excellent", "Excellent",
+     "Lowest risk. Instant approvals, the highest credit limits, and the lowest interest rates."),
+    (671, "very_good", "Very Good",
+     "Highly reliable. You easily qualify for most standard loans, cards, and leases at competitive rates."),
+    (531, "good", "Good",
+     "Acceptable history. Approved for most standard credit, but at average interest rates rather than top discounts."),
+    (439, "fair", "Fair",
+     "Moderate risk. Approval is harder, requires closer scrutiny/paperwork, and comes with higher interest rates."),
+    (0, "poor", "Poor",
+     "High risk. Standard approvals are very difficult to get; you must actively rebuild your score to secure credit."),
+]
+
+
+def classify(total: float) -> dict:
+    """Map a 0-1000 score to its band. Returns key/label/blurb and the band's
+    inclusive score range for display."""
+    for i, (low, key, label, blurb) in enumerate(RISK_BANDS):
+        if total >= low:
+            high = 1000 if i == 0 else RISK_BANDS[i - 1][0] - 1
+            return {"category_key": key, "category": label, "category_blurb": blurb,
+                    "band_low": low, "band_high": high}
+    # unreachable (last band starts at 0), but keep total-function safe
+    low, key, label, blurb = RISK_BANDS[-1]
+    return {"category_key": key, "category": label, "category_blurb": blurb,
+            "band_low": low, "band_high": RISK_BANDS[-2][0] - 1}
 
 CATEGORY_LABELS: dict[str, str] = {
     "affordability": "Affordability (DTI)",
@@ -216,7 +254,7 @@ def score_profile(p: dict) -> dict:
     total = 0.0
     for key, weight in WEIGHTS.items():
         sub_score, note = subs[key]
-        weighted = sub_score * weight / 100.0
+        weighted = sub_score * weight / 100.0 * SCALE  # points on the 0-1000 scale
         total += weighted
         breakdown.append({
             "key": key,
@@ -228,11 +266,4 @@ def score_profile(p: dict) -> dict:
         })
 
     total = round(total, 2)
-    if total >= 70.0:
-        category = "Low"
-    elif total >= 45.0:
-        category = "Medium"
-    else:
-        category = "High"
-
-    return {"total_score": total, "category": category, "breakdown": breakdown}
+    return {"total_score": total, "breakdown": breakdown, **classify(total)}

@@ -32,6 +32,24 @@ GREETING = (
     "To start: what is your net monthly salary?"
 )
 
+
+def greeting_for(name: str) -> str:
+    """Opening line for a fresh profile, addressed to a known user. Identity
+    (name + email) is captured deterministically by the form beforehand, so
+    the assistant never asks for it and jumps straight to finances."""
+    first = (name or "").strip().split(" ")[0] or "there"
+    return f"Thanks, {first}. To start: what's your net monthly salary?"
+
+
+def resume_greeting_for(name: str) -> str:
+    """Opening line when an existing user chooses to update their profile.
+    Their previous answers are already loaded, so only changes need stating."""
+    first = (name or "").strip().split(" ")[0] or "there"
+    return (
+        f"Welcome back, {first}. Just tell me what's changed and I'll rebuild your "
+        "report — or say 'nothing's changed' to refresh it."
+    )
+
 # ---------- call 1: extraction ----------
 
 # Every field is REQUIRED with a null union: the constrained decoder then
@@ -116,8 +134,9 @@ Hard rules:
 - STAY ON TASK. If the user asks about anything unrelated to this data collection (news, sport, trivia, coding, advice, opinions, anything), do NOT answer it — not even partially. Warmly say that's outside what you're here for (you only collect the financial details for their report), then immediately re-ask the pending question. Example: "That one's outside my lane, I'm afraid — I'm only here to collect the details for your credit risk report. So, what is your net monthly salary?"
 - The two allowed exceptions: (a) the user asks why a field is needed — explain briefly (it feeds a transparent, affordability-style formula), then re-ask; (b) the user asks what FIDUCIA is or what happens to their data — answer briefly (local prototype, data stays on this machine, a fixed formula does the scoring), then re-ask.
 - Never ask about age, gender, race, nationality, religion, or any personal characteristic. If offered, say it is not used and move on.
-- Keep replies to 1-3 sentences. No lists, no headers.
-- Respond to what the user just said, then ask ONLY for the fields named in your instruction block. Do not ask about anything else."""
+- BE BRIEF. One short line only: a two-word acknowledgement ("Thanks." / "Got it.") then the next question. No preamble, no restating what you recorded, no explaining what you are doing, no "your X is recorded as Y". Do not list. Just: acknowledge + ask.
+- Ask ONLY for the fields named in your instruction block. Do not ask about anything else.
+- FOLLOW-UP: if the instruction block says nothing new was recorded (the message was empty, vague, or off-topic), do NOT move on — re-ask the SAME pending field with a short example (e.g. "roughly how much a month — 800? 1200?")."""
 
 
 async def _compose_reply(messages: list, user_message: str, accepted: dict,

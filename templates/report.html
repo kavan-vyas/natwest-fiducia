@@ -2,22 +2,52 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>FIDUCIA — Risk Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fiducia — Risk Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 1rem; }
-    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-    th, td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
-    th { background: #eee; }
-    .cat-Low { color: green; } .cat-Medium { color: #b8860b; } .cat-High { color: red; }
-    .num { text-align: right; }
-    footer { font-size: 0.8rem; color: #666; margin-top: 2rem; }
+    :root { --lime:#7fa900; --ink:#1a1c18; --soft:#565a52; --line:#d9ddd3; --surface:#fff; --bg:#f7f8f6; }
+    * { box-sizing: border-box; }
+    body { font-family:'Open Sans',system-ui,sans-serif; background:var(--bg); color:var(--ink);
+           max-width:920px; margin:0 auto; padding:2rem 1.2rem; line-height:1.55; }
+    .brand { display:flex; align-items:baseline; gap:.5rem; margin-bottom:1.6rem; }
+    .brand .sigil { font-family:ui-monospace,Menlo,monospace; font-weight:700; color:var(--lime); font-size:1.3rem; }
+    .brand .nm { font-family:'Playfair Display',serif; font-weight:700; font-size:1.4rem; }
+    .brand small { color:var(--soft); letter-spacing:.14em; text-transform:uppercase; font-size:.6rem; }
+    h1 { font-family:'Playfair Display',serif; font-weight:700; }
+    .head { display:flex; flex-wrap:wrap; gap:1.4rem; align-items:center; justify-content:space-between;
+            background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:1.4rem; }
+    .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .score { font-family:'Playfair Display',serif; font-size:3rem; font-weight:700; line-height:1; }
+    .badge { display:inline-flex; align-items:center; gap:.5rem; border:2px solid currentColor; border-radius:999px; padding:.6rem 1.1rem; font-weight:700; }
+    .badge .dot { width:12px; height:12px; border-radius:50%; background:currentColor; }
+    .cat-excellent { color:#1b7f3b; } .cat-very_good { color:#5f9e0e; } .cat-good { color:#9a7d00; }
+    .cat-fair { color:#c96a1f; } .cat-poor { color:#c62828; }
+    a.btn { text-decoration:none; background:var(--lime); color:#fff; border-radius:10px; padding:.6rem 1rem; font-weight:700; }
+    table { border-collapse:collapse; width:100%; margin:1rem 0; }
+    th, td { border-bottom:1px solid var(--line); padding:.55rem .7rem; text-align:left; }
+    th { color:var(--soft); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; }
+    footer { font-size:.78rem; color:var(--soft); margin-top:2rem; }
   </style>
 </head>
 <body>
+  <div class="brand"><span class="sigil">[$]</span><span class="nm">Fiducia</span><small>NatEast</small></div>
   <h1>Credit Risk Report</h1>
+  {% if user %}<p>Prepared for <b>{{ user.full_name }}</b> · {{ user.email }}</p>{% endif %}
 
-  <h2>Result: <span class="cat-{{ result.category }}">{{ result.category }} risk</span>
-      — {{ result.total_score }} / 100</h2>
+  <div class="head">
+    <div>
+      <div class="score">{{ result.total_score }}<span style="font-size:1rem;color:var(--soft);"> / 1000</span></div>
+    </div>
+    <div class="badge cat-{{ result.category_key }}"><span class="dot"></span>{{ result.category }} · {{ result.band_low }}–{{ result.band_high }}</div>
+    <div style="display:flex;gap:.6rem;">
+      <a class="btn" href="/report/{{ session_id }}.csv">⭳ Export CSV</a>
+      <a class="btn" style="background:none;color:var(--ink);border:1.5px solid var(--line);" href="/">← Assistant</a>
+    </div>
+  </div>
+
+  <p class="cat-{{ result.category_key }}" style="font-weight:700;margin:.4rem 0 0;">{{ result.category }}</p>
+  <p style="color:var(--soft);margin:.2rem 0 1rem;">{{ result.category_blurb }}</p>
 
   <h3>Per-factor breakdown</h3>
   <table>
@@ -45,14 +75,12 @@
     {% endfor %}
   </table>
 
-  <p><a href="/">← Back to chat</a></p>
-
   <footer>
     Session {{ session_id }}. Simplified coursework simulation — not a real credit
     assessment; no payment-history bureau data, self-declared fields are unverified
     and down-weighted accordingly. The score is a fixed, auditable formula
-    (scoring.py); the conversational AI never influences it. Employment sector is
-    recorded for context but deliberately not scored.
+    (scoring.py); the conversational AI never influences it. Gender is stored for the
+    record but deliberately not scored. Employment sector is recorded for context but not scored.
   </footer>
 </body>
 </html>

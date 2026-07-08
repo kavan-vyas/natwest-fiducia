@@ -12,10 +12,52 @@ of Ollama, where any subset of fields may arrive.
 No demographic / protected-characteristic field exists in this schema.
 """
 
+import re
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
+
+# Gender options offered by the form. Collected and stored for the record
+# only — the scoring engine never receives this value (see scoring.py).
+GENDER_OPTIONS: list[str] = [
+    "female", "male", "non_binary", "prefer_to_self_describe", "prefer_not_to_say",
+]
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class Identity(BaseModel):
+    """The two deterministic, uniquely-stored fields (full name + email)
+    plus gender. No demographic value here is ever passed to scoring."""
+
+    full_name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=200)
+    gender: str = Field(min_length=1, max_length=40)
+
+    @field_validator("full_name")
+    @classmethod
+    def name_has_letters(cls, v: str) -> str:
+        v = v.strip()
+        if not any(c.isalpha() for c in v):
+            raise ValueError("full name must contain letters")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def email_shape(cls, v: str) -> str:
+        v = v.strip()
+        if not _EMAIL_RE.match(v):
+            raise ValueError("email address is not valid")
+        return v
+
+    @field_validator("gender")
+    @classmethod
+    def gender_known(cls, v: str) -> str:
+        v = v.strip().lower().replace(" ", "_")
+        if v not in GENDER_OPTIONS:
+            raise ValueError("gender not in offered options")
+        return v
 
 
 class EmploymentStatus(str, Enum):

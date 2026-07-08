@@ -4,7 +4,9 @@ All state lives in one permanent SQLite file on disk. Nothing is held in
 in-process memory between requests, so conversations survive a server
 restart and concurrent sessions never collide.
 
-Three tables:
+Four tables:
+  users             — deterministic identity (full name + email), gender
+                      stored but NEVER read by scoring; keyed uniquely
   sessions          — live conversation memory, keyed by session id
   conversation_log  — raw append-only record of every exchange (audit)
   structured_inputs — clean validated data; the ONLY table scoring reads
@@ -37,8 +39,19 @@ def _connect() -> sqlite3.Connection:
 def init_db() -> None:
     with _connect() as conn:
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                gender TEXT NOT NULL,        -- stored for the record, NEVER scored
+                created_at REAL NOT NULL,
+                UNIQUE (full_name, email)
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT PRIMARY KEY,
+                user_id INTEGER,             -- FK -> users.id (null for legacy)
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
                 fields TEXT NOT NULL,        -- JSON: field name -> value or null
@@ -80,15 +93,79 @@ def init_db() -> None:
         """)
 
 
+# ---------- users (deterministic identity) ----------
+
+def find_user(full_name: str, email: str) -> dict | None:
+    """Case-insensitive exact match on the (full name, email) pair."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE full_name = ? COLLATE NOCASE "
+            "AND email = ? COLLATE NOCASE",
+            (full_name.strip(), email.strip()),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_or_create_user(full_name: str, email: str, gender: str) -> dict:
+    """Return the existing user for this (name, email), or create one.
+    Gender is (re)stored but is never consumed by scoring."""
+    existing = find_user(full_name, email)
+    with _connect() as conn:
+        if existing:
+            conn.execute("UPDATE users SET gender = ? WHERE id = ?",
+                         (gender, existing["id"]))
+            existing["gender"] = gender
+            return existing
+        cur = conn.execute(
+            "INSERT INTO users (full_name, email, gender, created_at) VALUES (?, ?, ?, ?)",
+            (full_name.strip(), email.strip(), gender, time.time()),
+        )
+        return {"id": cur.lastrowid, "full_name": full_name.strip(),
+                "email": email.strip(), "gender": gender}
+
+
+def get_user(user_id: int) -> dict | None:
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def user_for_session(session_id: str) -> dict | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT u.* FROM users u JOIN sessions s ON s.user_id = u.id "
+            "WHERE s.session_id = ?", (session_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def latest_profile_for_user(user_id: int) -> dict | None:
+    """Most recent completed structured profile across this user's sessions.
+    Used to pre-seed an update session so only changes need re-stating."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT si.* FROM structured_inputs si "
+            "JOIN sessions s ON s.session_id = si.session_id "
+            "WHERE s.user_id = ? ORDER BY si.created_at DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    record = {c: row[c] for c in _STRUCTURED_COLUMNS}
+    record["dependents_ages"] = json.loads(record["dependents_ages"])
+    return record
+
+
 # ---------- sessions (live persistent memory) ----------
 
-def create_session(session_id: str, fields: dict, messages: list) -> None:
+def create_session(session_id: str, fields: dict, messages: list,
+                   user_id: int | None = None, completed: bool = False) -> None:
     now = time.time()
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO sessions (session_id, created_at, updated_at, fields, messages, completed) "
-            "VALUES (?, ?, ?, ?, ?, 0)",
-            (session_id, now, now, json.dumps(fields), json.dumps(messages)),
+            "INSERT INTO sessions (session_id, user_id, created_at, updated_at, fields, messages, completed) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (session_id, user_id, now, now, json.dumps(fields), json.dumps(messages), int(completed)),
         )
 
 
