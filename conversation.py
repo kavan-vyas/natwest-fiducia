@@ -16,6 +16,7 @@ have opposite needs:
 """
 
 import json
+import re
 
 import httpx
 
@@ -199,6 +200,128 @@ async def _compose_reply(messages: list, user_message: str, accepted: dict,
     return reply or "Could you tell me a bit more?"
 
 
+# ---------- grounding guard ----------
+#
+# The extraction schema forces the model to emit all 16 keys every turn. Given
+# a message shaped like a filled-in form, qwen3 will pattern-complete a field
+# the user never stated with a plausible in-range number instead of null — and
+# because it is in range, Pydantic accepts it and the profile silently
+# completes. So a numeric extraction is trusted only when that number actually
+# appears in the user's message. An ungrounded number is a fabrication, not an
+# answer: it is dropped and the field is re-asked, never allowed to complete.
+
+_NUMERIC_FIELDS = {
+    "monthly_salary", "current_savings", "monthly_mortgage", "num_dependents",
+    "job_tenure_years", "monthly_credit_card_spending",
+    "other_monthly_loan_repayments", "missed_payments_12m",
+    "credit_history_years", "credit_applications_6m",
+}
+# Suffix needs a trailing \b so a bare "m" doesn't swallow the start of a
+# following word ("34,000 Monthly" is 34000, not 34 million). "2.5k" still
+# works because k->space/end is a boundary; "Monthly" (m->o) is not.
+_NUM_TOKEN_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(k|grand|m|mn|million)?\b", re.I)
+_MULT = {"k": 1_000, "grand": 1_000, "m": 1_000_000, "mn": 1_000_000, "million": 1_000_000}
+_ZERO_WORDS = ("none", "nothing", "n/a", "nil", "zero", "no ")
+
+
+def _message_numbers(message: str) -> set[float]:
+    """Every numeric value literally present in the message, with k/grand/m
+    suffixes and thousands separators resolved (5,400 -> 5400, 2.5k -> 2500)."""
+    vals: set[float] = set()
+    for m in _NUM_TOKEN_RE.finditer(message):
+        try:
+            n = float(m.group(1).replace(",", ""))
+        except ValueError:
+            continue
+        suffix = (m.group(2) or "").lower()
+        if suffix:
+            n *= _MULT[suffix]
+        vals.add(n)
+    return vals
+
+
+def _grounded(field: str, value, message: str) -> bool:
+    """True if a numeric field's value is supported by the user's message.
+    Non-numeric fields (enums, sector, ages) are categorical and low-risk for
+    this failure mode, so they pass through unchecked."""
+    if field not in _NUMERIC_FIELDS:
+        return True
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return True
+    low = message.lower()
+    if v == 0:
+        return "0" in low or any(w in low for w in _ZERO_WORDS)
+    # Accept a direct match, or a yearly figure the extractor divided by 12.
+    return any(abs(v - c) < 0.01 or abs(v * 12 - c) < 0.01
+               for c in _message_numbers(message))
+
+
+# ---------- advice chat (post-report) ----------
+
+ADVICE_PROMPT = """You are the FIDUCIA advisor: a small assistant that helps ONE user understand THEIR finished credit-risk report and how they could improve it. You are shown that report's real factor scores in an [REPORT] block and must ground every answer in those actual numbers.
+
+What you DO:
+- Explain, in plain language, why a specific factor scored high or low for this user, referencing the real figures in the report.
+- Suggest concrete, behavioural steps to improve a weak factor (e.g. lower credit-card balances to cut the debt-to-income ratio, grow savings toward ~6 months of cover, avoid opening new credit for a while, keep accounts in good standing). Prioritise the lowest-scoring, highest-weight factors.
+- Explain what the score bands mean and roughly what would move them.
+
+Hard guardrails — never break these:
+- You NEVER recompute, re-estimate, predict, or promise a new score, approval odds, or "you'd be Excellent if...". The score is fixed by a separate deterministic formula; you only explain the existing one.
+- You give general educational guidance only. NEVER recommend specific products, lenders, cards, investments, or give tax, legal, or regulated financial advice. If asked "which card/loan/investment should I get", decline and keep to general behaviours.
+- STAY ON TOPIC. Anything not about this credit report (news, coding, trivia, personal chat, opinions, other people) → warmly decline in one line and steer back to their report. Do not answer it even partially.
+- Never discuss or ask about age, gender, race, nationality, religion, or any protected characteristic; none of these affect the score.
+- Never invent figures the report does not contain. If the user asks about something not in the report, say it isn't part of this assessment.
+- Be brief and supportive: 1-4 short sentences. No preamble.
+- OUTPUT IS PLAIN TEXT ONLY. Never use Markdown, LaTeX, or any formatting: no asterisks, no **bold**, no _italics_, no backticks, no #headings, no $…$ or \\(…\\) math, no tables. If you list steps, write them as plain sentences or simple hyphen lines. Write numbers and currency as plain characters (e.g. £3,900, 72%).
+
+This is an educational prototype, not real financial advice — you may remind the user of that if they lean on it as if it were."""
+
+
+def _report_context(result: dict, profile: dict) -> str:
+    """Compact, factual summary of the finished report for the advisor to ground
+    on. Worst-scoring factors first so improvement advice targets them. Carries
+    no identity/demographic data — only the score and its drivers."""
+    lines = [
+        f"Total score: {round(result['total_score'])} / 1000 "
+        f"({result['category']}, band {result['band_low']}-{result['band_high']}).",
+        f"Band meaning: {result['category_blurb']}",
+        "",
+        "Factors (sub-score 0-100, higher = lower risk; weight = influence):",
+    ]
+    for row in sorted(result["breakdown"], key=lambda r: r["sub_score"]):
+        lines.append(
+            f"- {row['label']}: {round(row['sub_score'])}/100, weight {row['weight']:.1f}%. {row['note']}")
+    return "\n".join(lines)
+
+
+async def advice_turn(result: dict, profile: dict, history: list, user_message: str) -> str:
+    """One turn of the post-report advisor chat. `history` is the prior
+    advisor-chat messages (role/content); scoring facts are injected fresh each
+    call so the model always reasons over the real report, never a stale copy."""
+    report_block = f"[REPORT — the user's finished credit-risk report]\n{_report_context(result, profile)}"
+    payload = {
+        "model": MODEL,
+        "messages": (
+            [{"role": "system", "content": ADVICE_PROMPT},
+             {"role": "system", "content": report_block}]
+            + history[-HISTORY_WINDOW:]
+            + [{"role": "user", "content": user_message}]
+        ),
+        "stream": False,
+        "think": False,
+        "keep_alive": KEEP_ALIVE,
+        "options": {"temperature": 0.4, "num_predict": 260},
+    }
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        resp = await client.post(OLLAMA_URL, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+    reply = (data.get("message") or {}).get("content", "").strip()
+    return reply or "Could you rephrase that? I can talk through any factor in your report."
+
+
 # ---------- per-turn orchestration ----------
 
 def _validate(raw_updates: dict) -> tuple[dict, list[str]]:
@@ -230,6 +353,13 @@ async def run_turn(fields: dict, messages: list, user_message: str) -> dict:
 
     raw_updates = await _extract(prev_question, user_message)
     accepted, rejected = _validate(raw_updates)
+
+    # Drop any numeric value the user never actually typed (model fabrication).
+    # Silent drop, not a "re-check" note: the field was never given, so it just
+    # becomes the next thing to ask for.
+    for name in list(accepted):
+        if not _grounded(name, accepted[name], user_message):
+            del accepted[name]
 
     # Work out what to ask next from the post-update state.
     tentative = dict(fields)

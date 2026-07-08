@@ -54,6 +54,17 @@ class SessionIn(BaseModel):
     mode: str = Field(default="new")  # "new" | "continue"
 
 
+class AdviceMsg(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class AdviceIn(BaseModel):
+    session_id: str = Field(min_length=1, max_length=64)
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[AdviceMsg] = Field(default_factory=list, max_length=40)
+
+
 def _session_status(fields: dict, completed: bool, session_id: str) -> dict:
     missing = missing_fields(fields)
     return {
@@ -182,6 +193,23 @@ async def resume_session(session_id: str):
         raise HTTPException(404, "Unknown session.")
     return {"session_id": session_id, "messages": state["messages"],
             **_session_status(state["fields"], state["completed"], session_id)}
+
+
+@app.post("/api/advice")
+async def advice(body: AdviceIn):
+    """Post-report advisor chat. Only available once a report exists; every
+    reply is grounded in that report's real scores and guardrailed in
+    conversation.advice_turn."""
+    payload = _report_payload(body.session_id)
+    if payload is None:
+        raise HTTPException(404, "No completed report for this session yet.")
+    history = [m.model_dump() for m in body.history]
+    try:
+        reply = await conversation.advice_turn(
+            payload["result"], payload["profile"], history, body.message)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"Ollama unavailable: {exc}") from exc
+    return {"reply": reply}
 
 
 @app.post("/api/chat")

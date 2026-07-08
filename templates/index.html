@@ -307,6 +307,49 @@
     .bar i { display: block; height: 100%; background: var(--lime); }
     .table-scroll { overflow-x: auto; }
     h2.sec { font-family: var(--font-brand); font-size: 1.4rem; margin: 2rem 0 .4rem; }
+    h2.sec .sub { font-family: var(--font-body, inherit); font-weight: 400; font-size: .85rem; color: var(--ink-soft); }
+
+    /* ---------- results charts ---------- */
+    .gauge-num { font-family: var(--font-brand); font-size: 2.6rem; font-weight: 700; }
+    .charts { display: grid; gap: .55rem; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.3rem; }
+    .crow { display: grid; grid-template-columns: 200px 1fr 48px; gap: .7rem; align-items: center; }
+    .crow .lab { font-size: .84rem; }
+    .crow .lab small { display: block; color: var(--ink-soft); font-size: .68rem; }
+    .crow .track { background: var(--surface-2); border-radius: 999px; height: 14px; overflow: hidden; }
+    .crow .track i { display: block; height: 100%; border-radius: 999px; }
+    .crow .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; font-size: .85rem; }
+    .s-hi i { background: var(--risk-low); } .s-good i { background: var(--risk-vgood); }
+    .s-mid i { background: var(--risk-good); } .s-lo i { background: var(--risk-med); } .s-poor i { background: var(--risk-high); }
+    .wt i { background: var(--lime); }
+    details.nums { margin-top: 1rem; }
+    details.nums summary { cursor: pointer; color: var(--ink-soft); font-size: .85rem; }
+    @media (max-width: 560px) { .crow { grid-template-columns: 116px 1fr 40px; } }
+
+    /* ---------- advisor chatbot ---------- */
+    #adv-fab { position: fixed; left: 18px; bottom: 18px; z-index: 55; display: none; align-items: center;
+      gap: .4rem; background: var(--ink); color: var(--bg); border: none; border-radius: 999px;
+      padding: .6rem .95rem; font: 600 .85rem var(--font-body, sans-serif); cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0,0,0,.24); }
+    #adv-fab.show { display: inline-flex; }
+    #adv-fab .g { color: var(--lime); font-weight: 800; }
+    #adv-panel { position: fixed; left: 18px; bottom: 18px; z-index: 56;
+      width: min(360px, calc(100vw - 36px)); height: min(500px, calc(100vh - 36px));
+      background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+      box-shadow: 0 16px 44px rgba(0,0,0,.3); display: none; flex-direction: column; overflow: hidden; }
+    #adv-panel.show { display: flex; }
+    .adv-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
+    .adv-head small { display: block; color: var(--ink-soft); font-size: .68rem; }
+    .adv-head button { background: none; border: none; font-size: 1.4rem; line-height: 1; color: var(--ink-soft); cursor: pointer; }
+    .adv-log { flex: 1; overflow-y: auto; padding: .9rem; display: flex; flex-direction: column; gap: .55rem; }
+    .adv-msg { max-width: 86%; padding: .5rem .75rem; border-radius: 12px; font-size: .85rem; line-height: 1.45; white-space: pre-wrap; }
+    .adv-msg.bot { background: var(--bg); border: 1px solid var(--line); align-self: flex-start; border-bottom-left-radius: 3px; }
+    .adv-msg.me { background: var(--lime); color: #1a1c18; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .adv-msg.err { background: #fdecea; color: #c62828; align-self: flex-start; }
+    .adv-input { display: flex; gap: .5rem; padding: .7rem; border-top: 1px solid var(--line); }
+    .adv-input input { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font: 400 .85rem var(--font-body, sans-serif); background: var(--bg); color: var(--ink); }
+    .adv-input button { background: var(--lime); color: #1a1c18; border: none; border-radius: 10px; padding: 0 .9rem; cursor: pointer; font-weight: 700; }
+    .adv-input button:disabled { opacity: .5; cursor: default; }
+    .adv-note { padding: .45rem .9rem .7rem; font-size: .66rem; color: var(--ink-soft); text-align: center; }
 
     /* ---------- accessibility drawer ---------- */
     .drawer-back { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity var(--anim); z-index: 60; }
@@ -472,6 +515,23 @@
     </section>
   </main>
 
+  <!-- ================= ADVISOR CHATBOT ================= -->
+  <button id="adv-fab" aria-label="Open advisor" title="Get personalised advice">
+    <span class="g">[£]</span> Advisor
+  </button>
+  <div id="adv-panel" role="dialog" aria-label="Fiducia advisor">
+    <div class="adv-head">
+      <div><b>Fiducia Advisor</b><small>Advice on your report</small></div>
+      <button id="adv-close" aria-label="Close">×</button>
+    </div>
+    <div id="adv-log" class="adv-log"></div>
+    <form id="adv-form" class="adv-input">
+      <input id="adv-text" type="text" autocomplete="off" maxlength="2000" placeholder="e.g. how can I improve my score?">
+      <button type="submit" aria-label="Send">➤</button>
+    </form>
+    <div class="adv-note">Educational prototype — general guidance, not financial advice.</div>
+  </div>
+
   <!-- ================= ACCESSIBILITY DRAWER ================= -->
   <div class="drawer-back" id="drawerBack"></div>
   <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Accessibility settings">
@@ -600,6 +660,11 @@
         $("tab-" + t).setAttribute("aria-selected", String(t === name));
         $("panel-" + t).classList.toggle("active", t === name);
       });
+      // Advisor is contextual to the finished report: only on the results tab.
+      const onResults = name === "results";
+      const fab = $("adv-fab"), panel = $("adv-panel");
+      if (!onResults) { fab.classList.remove("show"); panel.classList.remove("show"); }
+      else if (reportLoaded && !panel.classList.contains("show")) { fab.classList.add("show"); }
     }
     tabs.forEach(t => $("tab-" + t).addEventListener("click", (e) => {
       if (e.currentTarget.disabled) return; selectTab(t);
@@ -610,6 +675,20 @@
     let sessionId = localStorage.getItem("fiducia_session");
     let userId = null;
     const LABELS = {}; // filled from status payloads
+
+    // ---------- reload = fresh start for the next person ----------
+    // Warn before leaving/reloading if a session is under way, and on actual
+    // unload drop the stored session so a reload resets the site to landing
+    // (kiosk behaviour — the next person starts clean). Accessibility prefs,
+    // stored separately, are intentionally kept.
+    function sessionActive() { return !!sessionId; }
+    window.addEventListener("beforeunload", (e) => {
+      if (!sessionActive()) return;                 // nothing in progress: no prompt
+      e.preventDefault(); e.returnValue = "";       // triggers the browser's leave/reload warning
+    });
+    window.addEventListener("pagehide", () => {
+      localStorage.removeItem("fiducia_session");    // reset for the next visitor
+    });
 
     // ---------- gender options ----------
     const GENDER_LABELS = {
@@ -822,14 +901,48 @@
       } catch {}
     }
 
+    function scoreClass(s) {
+      return s >= 80 ? "s-hi" : s >= 60 ? "s-good" : s >= 45 ? "s-mid" : s >= 25 ? "s-lo" : "s-poor";
+    }
+
     function renderReport(d, sid) {
       const r = d.result;
       const name = d.user ? d.user.full_name : "";
+
+      // gauge: semicircle arc, filled proportional to score/1000
+      const frac = Math.max(0, Math.min(1, r.total_score / 1000));
+      const ARC = Math.PI * 120;
+      const gauge = `
+        <svg width="230" height="132" viewBox="0 0 300 160" role="img" aria-label="Score ${r.total_score} of 1000">
+          <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="var(--surface-2)" stroke-width="18" stroke-linecap="round"/>
+          <path d="M30 150 A120 120 0 0 1 270 150" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"
+                stroke-dasharray="${(ARC * frac).toFixed(1)} 9999"/>
+          <text x="150" y="118" text-anchor="middle" class="gauge-num" fill="currentColor">${Math.round(r.total_score)}</text>
+          <text x="150" y="143" text-anchor="middle" font-size="15" fill="var(--ink-soft)">/ 1000</text>
+        </svg>`;
+
+      // factor score bars (0-100)
+      const factorBars = r.breakdown.map(row => `
+        <div class="crow ${scoreClass(row.sub_score)}">
+          <div class="lab">${row.label}<small>weight ${row.weight.toFixed(1)}%</small></div>
+          <div class="track"><i style="width:${row.sub_score}%"></i></div>
+          <div class="v">${Math.round(row.sub_score)}</div>
+        </div>`).join("");
+
+      // contribution bars (weighted points), sorted high->low
+      const maxPts = Math.max(...r.breakdown.map(x => x.weighted_points));
+      const contrib = [...r.breakdown].sort((a, b) => b.weighted_points - a.weighted_points).map(row => `
+        <div class="crow wt">
+          <div class="lab">${row.label}</div>
+          <div class="track"><i style="width:${maxPts ? (row.weighted_points / maxPts * 100).toFixed(1) : 0}%"></i></div>
+          <div class="v">${row.weighted_points.toFixed(1)}</div>
+        </div>`).join("");
+
       const rows = r.breakdown.map(row => `
         <tr>
           <td>${row.label}</td>
           <td class="num">${row.weight.toFixed(2)}%</td>
-          <td class="num">${row.sub_score}<div class="bar"><i style="width:${row.sub_score}%"></i></div></td>
+          <td class="num">${row.sub_score}</td>
           <td class="num">${row.weighted_points}</td>
           <td>${escapeHtml(row.note)}</td>
         </tr>`).join("");
@@ -839,29 +952,101 @@
       $("resultsBody").innerHTML = `
         <div class="card">
           <div class="result-head">
-            <div class="score-dial">
-              <div class="num">${r.total_score}</div>
-              <div class="den">out of 1000${name ? " · " + escapeHtml(name) : ""}</div>
+            <div class="score-dial risk-${r.category_key}">
+              ${gauge}
+              <div class="den">${name ? escapeHtml(name) : "Your result"}</div>
             </div>
             <div class="risk-badge risk-${r.category_key}">
-              <span class="dot"></span><span>${riskIcon(r.category_key)} ${r.category}</span>
+              <span class="dot"></span><span>${riskIcon(r.category_key)} ${r.category} · ${r.band_low}–${r.band_high}</span>
             </div>
             <div class="result-actions">
               <a class="primary" href="/report/${sid}.csv" style="text-decoration:none;">⭳ Export CSV</a>
               <a class="primary ghost" href="/report/${sid}" target="_blank" style="text-decoration:none;">Open full report ↗</a>
             </div>
           </div>
-          <p class="risk-blurb"><b class="risk-${r.category_key}">${r.category} · ${r.band_low}–${r.band_high}</b> — ${escapeHtml(r.category_blurb)}</p>
-          <h2 class="sec">Per-factor breakdown</h2>
-          <div class="table-scroll"><table class="data">
-            <tr><th>Category</th><th class="num">Weight</th><th class="num">Sub-score</th><th class="num">Points</th><th>Basis</th></tr>
-            ${rows}
-            <tr><th>Total</th><th class="num">100.00%</th><th></th><th class="num">${r.total_score}</th><th></th></tr>
-          </table></div>
-          <h2 class="sec">Inputs used</h2>
-          <div class="table-scroll"><table class="data">${inputs}</table></div>
+          <p class="risk-blurb"><b class="risk-${r.category_key}">${r.category}</b> — ${escapeHtml(r.category_blurb)}</p>
+
+          <h2 class="sec">Factor scores <span class="sub">(0–100, higher = lower risk)</span></h2>
+          <div class="charts">${factorBars}</div>
+
+          <h2 class="sec">Where the points come from <span class="sub">(weighted contribution to ${Math.round(r.total_score)})</span></h2>
+          <div class="charts">${contrib}</div>
+
+          <details class="nums">
+            <summary>Show exact numbers &amp; basis</summary>
+            <div class="table-scroll"><table class="data">
+              <tr><th>Category</th><th class="num">Weight</th><th class="num">Sub-score</th><th class="num">Points</th><th>Basis</th></tr>
+              ${rows}
+              <tr><th>Total</th><th class="num">100.00%</th><th></th><th class="num">${r.total_score}</th><th></th></tr>
+            </table></div>
+            <h2 class="sec">Inputs used</h2>
+            <div class="table-scroll"><table class="data">${inputs}</table></div>
+          </details>
           <p class="hint" style="margin-top:1.4rem;">Simplified coursework simulation — not a real credit assessment. Self-declared fields are unverified and down-weighted. The score is a fixed, auditable formula; the assistant never influences it. Gender is stored but never scored.</p>
         </div>`;
+
+      setupAdvisor(sid);
+    }
+
+    // ---------- post-report advisor chatbot ----------
+    let advReady = false;
+    function setupAdvisor(sid) {
+      const fab = $("adv-fab"), panel = $("adv-panel"), log = $("adv-log"),
+            form = $("adv-form"), text = $("adv-text");
+      const sendBtn = form.querySelector("button");
+      fab.classList.add("show");
+      if (advReady) return;   // wire listeners once
+      advReady = true;
+      const history = [];
+      let greeted = false;
+
+      // Backstop: strip any Markdown/LaTeX the model emits so replies read as
+      // clean plain text (the panel renders textContent, never HTML).
+      function plain(s) {
+        return String(s)
+          .replace(/\*\*(.*?)\*\*/g, "$1").replace(/(^|\s)[*_]([^*_]+)[*_]/g, "$1$2")
+          .replace(/`([^`]*)`/g, "$1")
+          .replace(/^\s{0,3}#{1,6}\s*/gm, "")
+          .replace(/\\\(|\\\)|\\\[|\\\]|\$/g, "")
+          .replace(/^\s*[*+]\s+/gm, "- ")
+          .trim();
+      }
+      function add(role, content) {
+        const el = document.createElement("div");
+        el.className = "adv-msg " + (role === "user" ? "me" : role === "error" ? "err" : "bot");
+        el.textContent = role === "bot" ? plain(content) : content;
+        log.appendChild(el); log.scrollTop = log.scrollHeight;
+        return el;
+      }
+      fab.addEventListener("click", () => {
+        panel.classList.add("show"); fab.classList.remove("show"); text.focus();
+        if (!greeted) { greeted = true;
+          add("bot", "Hi! I can talk through your report — why a factor scored the way it did, and practical ways to improve it. What would you like to know?");
+        }
+      });
+      $("adv-close").addEventListener("click", () => {
+        panel.classList.remove("show"); fab.classList.add("show");
+      });
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const m = text.value.trim(); if (!m) return;
+        add("user", m); history.push({ role: "user", content: m });
+        text.value = ""; sendBtn.disabled = true;
+        const thinking = add("bot", "…");
+        try {
+          const res = await fetch("/api/advice", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sid, message: m, history: history.slice(0, -1) })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Request failed");
+          thinking.textContent = plain(data.reply);
+          history.push({ role: "assistant", content: data.reply });
+        } catch (err) {
+          thinking.className = "adv-msg err";
+          thinking.textContent = "Sorry — " + err.message;
+        } finally { sendBtn.disabled = false; text.focus(); }
+      });
     }
 
     function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
