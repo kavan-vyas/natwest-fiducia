@@ -29,6 +29,8 @@ from schema import (ALL_FIELDS, FIELD_LABELS, GENDER_OPTIONS, FinancialProfile,
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    # Preload the LLM so the first user turn is warm, not a ~14s cold load.
+    await conversation.warmup()
     yield
 
 

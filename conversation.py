@@ -25,6 +25,23 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "qwen3:8b"
 TIMEOUT = 300.0
 HISTORY_WINDOW = 10  # recent messages passed to the reply call
+# Keep the model resident so it isn't unloaded between turns. A cold load of
+# qwen3:8b costs ~14s from disk; warm it stays ~3s. 30m covers a demo session.
+KEEP_ALIVE = "30m"
+
+
+async def warmup() -> None:
+    """Preload the model into memory on startup so the first user turn is warm,
+    not a 14s cold load. Fails quietly if Ollama isn't running yet."""
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            await client.post(OLLAMA_URL, json={
+                "model": MODEL, "messages": [{"role": "user", "content": "hi"}],
+                "stream": False, "think": False, "keep_alive": KEEP_ALIVE,
+                "options": {"num_predict": 1},
+            })
+    except Exception:
+        pass
 
 GREETING = (
     "Hello! I'm the FIDUCIA assistant. I'll ask you a few questions about your "
@@ -112,6 +129,7 @@ async def _extract(prev_question: str, user_message: str) -> dict:
         ],
         "stream": False,
         "think": False,
+        "keep_alive": KEEP_ALIVE,
         "format": EXTRACT_SCHEMA,
         "options": {"temperature": 0.0},
     }
@@ -169,7 +187,9 @@ async def _compose_reply(messages: list, user_message: str, accepted: dict,
         ),
         "stream": False,
         "think": False,
-        "options": {"temperature": 0.3},
+        "keep_alive": KEEP_ALIVE,
+        # Reply is a single short line; cap generation so it can't run long.
+        "options": {"temperature": 0.3, "num_predict": 80},
     }
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         resp = await client.post(OLLAMA_URL, json=payload)
