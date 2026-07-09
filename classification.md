@@ -44,6 +44,8 @@ where $n = 9$, the total number of categorys. this guarantees $\sum_i w_i = 1$.
 
 ---
 
+
+
 ## 2. worked calculation
 
 with $n = 9$ categories:

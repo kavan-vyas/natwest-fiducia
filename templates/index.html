@@ -326,13 +326,15 @@
     @media (max-width: 560px) { .crow { grid-template-columns: 116px 1fr 40px; } }
 
     /* ---------- Personal Financial Assistant chatbot ---------- */
-    #adv-fab { position: fixed; left: 20px; bottom: 20px; z-index: 55; display: none; align-items: center;
+    #adv-fab { position: fixed; right: 20px; bottom: 20px; z-index: 55; display: none; align-items: center;
       gap: .5rem; background: var(--lime); color: #14210a; border: none; border-radius: 999px;
       padding: .8rem 1.2rem; font: 700 .92rem var(--font-body, sans-serif); cursor: pointer;
       box-shadow: 0 8px 26px rgba(0,0,0,.28); }
     #adv-fab.show { display: inline-flex; }
     #adv-fab:hover { filter: brightness(1.06); transform: translateY(-1px); }
-    #adv-fab .g { font-size: 1.15rem; line-height: 1; }
+    #adv-fab .g { display: inline-flex; align-items: center; line-height: 1; }
+    .ic { vertical-align: -0.15em; flex: none; }
+    #adv-fab .ic, #readAloud .ic, .adv-input button .ic { vertical-align: middle; }
     #adv-fab .pulse { width: 9px; height: 9px; border-radius: 50%; background: #14210a; box-shadow: 0 0 0 0 rgba(20,33,10,.5); animation: advpulse 2s infinite; }
     @keyframes advpulse { 0%{box-shadow:0 0 0 0 rgba(20,33,10,.45);} 70%{box-shadow:0 0 0 8px rgba(20,33,10,0);} 100%{box-shadow:0 0 0 0 rgba(20,33,10,0);} }
 
@@ -370,6 +372,10 @@
     .adv-msg.bot code { background: var(--surface-2); border-radius: 5px; padding: .05rem .3rem; font-size: .82em; }
     .adv-msg.bot strong { font-weight: 700; }
     .adv-msg.bot a { color: var(--lime); text-decoration: underline; }
+    .adv-msg-tools { display: flex; justify-content: flex-end; margin-top: .35rem; }
+    .adv-tts { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+      background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-soft); cursor: pointer; }
+    .adv-tts:hover { color: var(--ink); border-color: var(--ink-soft); }
     .adv-input { display: flex; gap: .5rem; padding: .7rem; border-top: 1px solid var(--line); }
     .adv-input input { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font: 400 .85rem var(--font-body, sans-serif); background: var(--bg); color: var(--ink); }
     .adv-input button { background: var(--lime); color: #14210a; border: none; border-radius: 10px; padding: 0 .9rem; cursor: pointer; font-weight: 700; }
@@ -437,7 +443,7 @@
       <button class="iconbtn" id="themeBtn" title="Switch theme">
         <span id="themeIcon">◐</span><span id="themeLabel">Light</span>
       </button>
-      <button class="iconbtn" id="a11yBtn" aria-haspopup="dialog">♿ Accessibility</button>
+      <button class="iconbtn" id="a11yBtn" aria-haspopup="dialog"><span id="a11yIcon"></span> Accessibility</button>
     </div>
   </header>
 
@@ -542,7 +548,7 @@
 
   <!-- ================= PERSONAL FINANCIAL ASSISTANT ================= -->
   <button id="adv-fab" aria-label="Open Personal Financial Assistant" title="Personal Financial Assistant">
-    <span class="pulse"></span><span class="g">💬</span> Personal Financial Assistant
+    <span class="pulse"></span><span class="g" id="fabIcon"></span> Personal Financial Assistant
   </button>
   <div id="adv-panel" role="dialog" aria-label="Personal Financial Assistant">
     <div class="adv-head" id="adv-head">
@@ -555,7 +561,7 @@
     <div id="adv-log" class="adv-log"></div>
     <form id="adv-form" class="adv-input">
       <input id="adv-text" type="text" autocomplete="off" maxlength="2000" placeholder="Ask anything about your money…">
-      <button type="submit" aria-label="Send">➤</button>
+      <button type="submit" aria-label="Send" id="advSend"></button>
     </form>
     <div class="adv-note">Educational guidance, not regulated financial advice.</div>
   </div>
@@ -599,7 +605,7 @@
       <p class="tc-lead">Please read these terms in full. You cannot begin the assessment until you agree.</p>
       <div class="tc-body" id="tcBody" tabindex="0">
         <h4>1. Nature of this service</h4>
-        <p>Fiducia is a prototype credit-risk assessment tool provided by NatEast for demonstration and educational purposes only. It does not constitute a regulated credit decision, a lending offer, financial advice, or any commitment to provide credit. Nothing produced by Fiducia should be relied upon for any real financial, legal, or commercial decision.</p>
+        <p>Fiducia is a prototype credit score tool provided by NatEast for demonstration and educational purposes only. It does not constitute a regulated credit decision, a lending offer, financial advice, or any commitment to provide credit. Nothing produced by Fiducia should be relied upon for any real financial, legal, or commercial decision.</p>
         <h4>2. Data you provide</h4>
         <p>You agree to provide accurate, truthful, and complete information to the best of your knowledge. All financial fields are self-declared and unverified. You acknowledge that inaccurate input will produce an inaccurate result and that Fiducia performs no external verification against any credit bureau, bank, or third party.</p>
         <h4>3. Storage and locality</h4>
@@ -634,13 +640,31 @@
       set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
     };
 
+    // ---------- inline SVG icons (professional, monochrome, currentColor) ----------
+    const _svg = (p, o) => `<svg class="ic" viewBox="0 0 24 24" width="${(o&&o.s)||16}" height="${(o&&o.s)||16}" fill="${(o&&o.fill)||'none'}" stroke="${(o&&o.fill)?'none':'currentColor'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+    const ICON = {
+      chat: _svg('<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>', { s: 18 }),
+      send: _svg('<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>'),
+      speaker: _svg('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.7 5.3a9 9 0 0 1 0 13.4"/>'),
+      stop: _svg('<rect x="6" y="6" width="12" height="12" rx="2"/>', { fill: 'currentColor' }),
+      download: _svg('<path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>'),
+      access: _svg('<circle cx="12" cy="4.4" r="1.7"/><path d="M4 8h16"/><path d="M12 8v6.5"/><path d="m9 21 3-6.5 3 6.5"/>'),
+      sun: _svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+      moon: _svg('<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>'),
+      contrast: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>'),
+    };
+    // paint the static icons (script runs after the DOM is in place)
+    $("fabIcon").innerHTML = ICON.chat;
+    $("advSend").innerHTML = ICON.send;
+    $("a11yIcon").innerHTML = ICON.access;
+
     // ---------- theme ----------
     const THEMES = ["light", "dark", "contrast"];
-    const THEME_META = { light: ["◐","Light"], dark: ["🌙","Dark"], contrast: ["◼","Contrast"] };
+    const THEME_META = { light: [ICON.sun, "Light"], dark: [ICON.moon, "Dark"], contrast: [ICON.contrast, "Contrast"] };
     function applyTheme(t) {
       document.documentElement.setAttribute("data-theme", t);
       store.set("theme", t);
-      $("themeIcon").textContent = THEME_META[t][0];
+      $("themeIcon").innerHTML = THEME_META[t][0];
       $("themeLabel").textContent = THEME_META[t][1];
       document.querySelectorAll("[data-theme-set]").forEach(b =>
         b.setAttribute("aria-pressed", String(b.dataset.themeSet === t)));
@@ -667,11 +691,43 @@
     $("tgTts").checked = ttsOn;
     $("tgTts").addEventListener("change", () => { ttsOn = $("tgTts").checked; store.set("a11y_tts", ttsOn); if (!ttsOn) window.speechSynthesis?.cancel(); });
 
+    // Pick the most natural English voice available. The browser default is
+    // usually the robotic one; modern OSes ship far better "Natural"/"Enhanced"
+    // neural voices (Google/Microsoft/Apple) that we prefer when present.
+    // Voices load asynchronously, so we (re)resolve on the voiceschanged event.
+    let chosenVoice = null;
+    function pickVoice() {
+      const voices = window.speechSynthesis?.getVoices?.() || [];
+      if (!voices.length) return null;
+      const en = voices.filter(v => /^en(-|_|$)/i.test(v.lang));
+      const pool = en.length ? en : voices;
+      const prefer = [
+        /natural/i, /neural/i, /enhanced/i, /premium/i,
+        /google (uk|us) english/i, /google english/i,
+        /microsoft .*(aria|jenny|libby|sonia|natasha|guy|ryan)/i,
+        /samantha|serena|karen|moira|tessa|daniel|arthur|kate|stephanie/i,
+      ];
+      for (const rx of prefer) { const m = pool.find(v => rx.test(v.name)); if (m) return m; }
+      return pool.find(v => v.default) || pool[0];
+    }
+    function ensureVoice() { if (!chosenVoice) chosenVoice = pickVoice(); return chosenVoice; }
+    if (window.speechSynthesis) {
+      ensureVoice();
+      window.speechSynthesis.onvoiceschanged = () => { chosenVoice = pickVoice(); };
+    }
+    function styleUtterance(u) {
+      const v = ensureVoice();
+      if (v) { u.voice = v; u.lang = v.lang; }
+      // Slightly slower + natural pitch reads far less robotic than the default.
+      u.rate = 0.98; u.pitch = 1.05;
+    }
+
     function speak(text) {
       if (!ttsOn || !window.speechSynthesis) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1; u.pitch = 1; window.speechSynthesis.speak(u);
+      styleUtterance(u);
+      window.speechSynthesis.speak(u);
     }
 
     // Explicit "read the report aloud" — runs on user click regardless of the
@@ -682,14 +738,14 @@
       if (reportUttering) { window.speechSynthesis.cancel(); return; }  // 'end' handler resets UI
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1; u.pitch = 1;
-      u.onend = u.onerror = () => { reportUttering = false; if (btn) btn.textContent = "🔊 Read aloud"; };
-      reportUttering = true; if (btn) btn.textContent = "⏹ Stop";
+      styleUtterance(u);
+      u.onend = u.onerror = () => { reportUttering = false; if (btn) btn.innerHTML = ICON.speaker + " Read aloud"; };
+      reportUttering = true; if (btn) btn.innerHTML = ICON.stop + " Stop";
       window.speechSynthesis.speak(u);
     }
     function reportSpeech(r, name) {
       const parts = [
-        `${name ? name + ", here is" : "Here is"} your credit risk report.`,
+        `${name ? name + ", here is" : "Here is"} your credit score report.`,
         `Your score is ${Math.round(r.total_score)} out of 1000, in the ${r.category} band.`,
         r.category_blurb,
         "Here is how each factor scored, out of 100.",
@@ -1014,8 +1070,8 @@
               <span class="dot"></span><span>${riskIcon(r.category_key)} ${r.category} · ${r.band_low}–${r.band_high}</span>
             </div>
             <div class="result-actions">
-              <button class="primary" id="readAloud" type="button">🔊 Read aloud</button>
-              <a class="primary" href="/report/${sid}.csv" style="text-decoration:none;">⭳ Export CSV</a>
+              <button class="primary" id="readAloud" type="button">${ICON.speaker} Read aloud</button>
+              <a class="primary" href="/report/${sid}.csv" style="text-decoration:none;">${ICON.download} Export CSV</a>
               <a class="primary ghost" href="/report/${sid}" target="_blank" style="text-decoration:none;">Open full report ↗</a>
             </div>
           </div>
@@ -1072,6 +1128,14 @@
       closeList();
       return html;
     }
+    // Markdown -> spoken plain text (strip syntax so TTS doesn't read "asterisk").
+    function mdToPlain(src) {
+      return String(src)
+        .replace(/[*_`#>]/g, "")
+        .replace(/^\s*[-+]\s+/gm, ", ")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/\s+/g, " ").trim();
+    }
 
     let advReady = false;
     function setupAdvisor(sid) {
@@ -1093,10 +1157,37 @@
       }
       function setBot(el, content) { el.className = "adv-msg bot"; el.innerHTML = mdToHtml(content); log.scrollTop = log.scrollHeight; }
 
+      // ----- per-message read-aloud -----
+      let speakingBtn = null;
+      function stopSpeak() { window.speechSynthesis?.cancel(); if (speakingBtn) speakingBtn.innerHTML = ICON.speaker; speakingBtn = null; }
+      function speakMsg(textMd, btn) {
+        if (!window.speechSynthesis) return;
+        if (speakingBtn === btn) { stopSpeak(); return; }   // toggle off
+        stopSpeak();
+        const u = new SpeechSynthesisUtterance(mdToPlain(textMd));
+        styleUtterance(u);
+        u.onend = u.onerror = () => { if (speakingBtn === btn) { btn.innerHTML = ICON.speaker; speakingBtn = null; } };
+        speakingBtn = btn; btn.innerHTML = ICON.stop;
+        window.speechSynthesis.speak(u);
+      }
+      // Add a read-aloud control to a finished bot bubble; auto-start if the
+      // "Read answers aloud" accessibility toggle is on.
+      function addReadAloud(el, textMd, autoplay) {
+        const bar = document.createElement("div"); bar.className = "adv-msg-tools";
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "adv-tts"; b.title = "Read aloud";
+        b.setAttribute("aria-label", "Read this message aloud"); b.innerHTML = ICON.speaker;
+        b.addEventListener("click", () => speakMsg(textMd, b));
+        bar.appendChild(b); el.appendChild(bar); log.scrollTop = log.scrollHeight;
+        if (autoplay && ttsOn) speakMsg(textMd, b);
+        return b;
+      }
+
       fab.addEventListener("click", () => {
         panel.classList.add("show"); fab.classList.remove("show"); text.focus();
         if (!greeted) { greeted = true;
-          add("bot", "Hi — I'm your **Personal Financial Assistant**. I've read your report. Tell me a bit about your situation (your job, goals, what's on your mind) and I'll give you specific, one-to-one guidance — improving your score, budgeting, debt, saving and investing.");
+          const g = "Hi — I'm your **Personal Financial Assistant**. I've read your report. Tell me a bit about your situation (your job, goals, what's on your mind) and I'll give you specific, one-to-one guidance — improving your score, budgeting, debt, saving and investing.";
+          addReadAloud(add("bot", g), g, false);
         }
       });
       $("adv-close").addEventListener("click", () => { panel.classList.remove("show", "collapsed"); fab.classList.add("show"); });
@@ -1180,6 +1271,7 @@
             setBot(thinking, acc);
           }
           setBot(thinking, acc || "…");
+          if (acc) addReadAloud(thinking, acc, true);   // auto-reads if TTS toggle is on
           history.push({ role: "assistant", content: acc });
         } catch (err) {
           thinking.className = "adv-msg err";

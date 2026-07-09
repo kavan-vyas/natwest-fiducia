@@ -89,3 +89,18 @@ Bonus Step – Optional:
 Provide a working prototype on the look and feel of your product.
 
 ```
+---
+
+## Screenshots
+
+![Fiducia welcome screen](readme_media/Screenshot%202026-07-09%20at%2011.56.26.png)
+*Welcome screen — local-only, a fixed auditable formula, no protected characteristics scored.*
+
+![Conversational assistant collecting details](readme_media/Screenshot%202026-07-09%20at%2011.56.32.png)
+*The assistant gathers financial details in plain conversation; the checklist tracks every field.*
+
+![Results with score gauge and factor bars](readme_media/Screenshot%202026-07-09%20at%2011.56.37.png)
+*Results — score gauge, band, and per-factor breakdown, with read-aloud and CSV export.*
+
+![Accessibility options panel](readme_media/Screenshot%202026-07-09%20at%2011.56.41.png)
+*Built-in accessibility: theme, dyslexia-friendly font, reduced motion, text-to-speech, larger text.*

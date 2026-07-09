@@ -1,31 +1,9 @@
-"""FIDUCIA — deterministic scoring engine.
+# deterministic scoring engine. pure functions, no ai, no db, no demographics.
+# each category sub-score is 0-100 (higher = lower risk); weighted sum scaled
+# to 0-1000 and mapped to five bands. employment_sector is collected but not
+# scored on purpose (ranking sectors by "stability" would be biased).
 
-Pure functions only. No AI, no database access, no framework imports,
-no demographic fields. This module is auditable in isolation: the score
-is a function of exactly the fields listed in WEIGHTS' category scorers
-below and nothing else.
-
-Weights come from the Weighted Scoring Model derivation in
-methodology.md (importance 1-5 x reliability multiplier, normalised to
-100%). They must not be changed here without changing the methodology.
-
-Every category sub-score is on a 0-100 scale where HIGHER = LOWER RISK.
-The weighted sum of those sub-scores (0-100) is scaled by SCALE = 10 so the
-final credit score runs 0-1000, then mapped to one of five bands
-(HIGHER SCORE = BETTER CREDITWORTHINESS = LOWER RISK):
-    811-1000 -> Excellent
-    671-810  -> Very Good
-    531-670  -> Good
-    439-530  -> Fair
-    0-438    -> Poor
-
-Note on employment_sector: it is collected for context and shown on the
-report, but deliberately NOT scored — ranking sectors by "stability"
-would be a subjective judgement with no defensible basis, exactly the
-kind of opaque bias this project exists to avoid.
-"""
-
-# Category -> weight in percent. Sums to exactly 100.00.
+# category -> weight %, sums to 100
 WEIGHTS: dict[str, float] = {
     "affordability": 22.32,
     "employment_stability": 17.86,
@@ -38,13 +16,10 @@ WEIGHTS: dict[str, float] = {
     "recent_credit_activity": 2.68,
 }
 
-# Final score runs 0-1000. Category sub-scores stay on 0-100; the weighted
-# sum (0-100) is multiplied by this to reach the 0-1000 scale.
+# weighted sub-score sum (0-100) times this reaches the 0-1000 scale
 SCALE: float = 10.0
 
-# Five-band classification on the 0-1000 scale. Ordered high -> low; the first
-# band whose lower bound the score meets or exceeds is the match. Each entry:
-# (lower_bound, key, label, blurb). `key` is a CSS/JS-safe slug.
+# bands high -> low: (lower_bound, key, label, blurb). key is a css/js-safe slug.
 RISK_BANDS: list[tuple[int, str, str, str]] = [
     (811, "excellent", "Excellent",
      "Lowest risk. Instant approvals, the highest credit limits, and the lowest interest rates."),
@@ -60,14 +35,12 @@ RISK_BANDS: list[tuple[int, str, str, str]] = [
 
 
 def classify(total: float) -> dict:
-    """Map a 0-1000 score to its band. Returns key/label/blurb and the band's
-    inclusive score range for display."""
+    # first band whose lower bound the score meets
     for i, (low, key, label, blurb) in enumerate(RISK_BANDS):
         if total >= low:
             high = 1000 if i == 0 else RISK_BANDS[i - 1][0] - 1
             return {"category_key": key, "category": label, "category_blurb": blurb,
                     "band_low": low, "band_high": high}
-    # unreachable (last band starts at 0), but keep total-function safe
     low, key, label, blurb = RISK_BANDS[-1]
     return {"category_key": key, "category": label, "category_blurb": blurb,
             "band_low": low, "band_high": RISK_BANDS[-2][0] - 1}
@@ -90,7 +63,7 @@ def _clamp(x: float, lo: float = 0.0, hi: float = 100.0) -> float:
 
 
 def _linear(x: float, x0: float, x1: float, y0: float, y1: float) -> float:
-    """Linear interpolation of x from [x0, x1] onto [y0, y1], clamped."""
+    # linear interp of x from [x0,x1] onto [y0,y1], clamped
     if x <= x0:
         return y0
     if x >= x1:
@@ -98,14 +71,12 @@ def _linear(x: float, x0: float, x1: float, y0: float, y1: float) -> float:
     return y0 + (x - x0) * (y1 - y0) / (x1 - x0)
 
 
-# ---------- category scorers ----------
-# Each returns (sub_score 0-100, short human explanation).
+# category scorers: each returns (sub_score 0-100, short note)
 
 def score_affordability(monthly_salary: float, monthly_mortgage: float,
                         monthly_credit_card_spending: float,
                         other_monthly_loan_repayments: float) -> tuple[float, str]:
-    """Debt-to-income ratio. 0.36 is the conventional DTI ceiling in
-    lending practice; below 0.15 is treated as fully comfortable."""
+    # debt-to-income. 0.36 conventional ceiling, below 0.15 fully comfortable
     debt = monthly_mortgage + monthly_credit_card_spending + other_monthly_loan_repayments
     if monthly_salary <= 0:
         return 0.0, "No monthly income declared; repayments cannot be serviced from income."
@@ -123,7 +94,7 @@ def score_affordability(monthly_salary: float, monthly_mortgage: float,
 
 def score_employment_stability(employment_status: str, job_tenure_years: float,
                                income_variability: str) -> tuple[float, str]:
-    """Blend: status 55%, tenure 30%, income variability 15%."""
+    # status 55%, tenure 30%, variability 15%
     status_base = {
         "full_time": 90.0, "retired": 75.0, "self_employed": 65.0,
         "part_time": 60.0, "student": 45.0, "unemployed": 10.0,
@@ -138,8 +109,7 @@ def score_employment_stability(employment_status: str, job_tenure_years: float,
 
 
 def score_payment_history(missed_payments_12m: int) -> tuple[float, str]:
-    """Self-declared, so already discounted at the weight level (0.6
-    reliability multiplier in the methodology)."""
+    # self-declared, already discounted at the weight level
     n = missed_payments_12m
     if n == 0:
         score = 100.0
@@ -156,9 +126,7 @@ def score_savings_buffer(current_savings: float, monthly_salary: float,
                          monthly_mortgage: float, monthly_credit_card_spending: float,
                          other_monthly_loan_repayments: float,
                          savings_trend: str) -> tuple[float, str]:
-    """Blend: months-of-cover 70%, trend 30%. Cover is savings divided by
-    monthly income (or by outgoings when there is no income); 6+ months
-    of cover scores full marks."""
+    # months-of-cover 70%, trend 30%; 6+ months = full marks
     outgoings = monthly_mortgage + monthly_credit_card_spending + other_monthly_loan_repayments
     denominator = monthly_salary if monthly_salary > 0 else max(outgoings, 1.0)
     months = current_savings / max(denominator, 1.0)
@@ -169,7 +137,7 @@ def score_savings_buffer(current_savings: float, monthly_salary: float,
 
 
 def score_credit_history_length(credit_history_years: float) -> tuple[float, str]:
-    """Thin file scores low, 10+ years scores full."""
+    # thin file scores low, 10+ years scores full
     score = _linear(credit_history_years, 0.0, 10.0, 20.0, 100.0)
     return round(score, 2), f"{credit_history_years:g} self-declared year(s) holding credit."
 
@@ -181,9 +149,7 @@ def score_housing_status(housing_status: str) -> tuple[float, str]:
 
 def score_debt_composition(monthly_mortgage: float, monthly_credit_card_spending: float,
                            other_monthly_loan_repayments: float) -> tuple[float, str]:
-    """A mix of instalment and revolving credit is healthiest; debt
-    dominated by revolving (credit card) spend is the riskiest shape;
-    no debt at all is a thin record, mildly discounted."""
+    # a mix is healthiest; revolving-dominated is riskiest; no debt is thin
     parts = {
         "mortgage": monthly_mortgage,
         "credit card": monthly_credit_card_spending,
@@ -205,8 +171,7 @@ def score_debt_composition(monthly_mortgage: float, monthly_credit_card_spending
 
 
 def score_dependents_burden(num_dependents: int, dependents_ages: list[int]) -> tuple[float, str]:
-    """More dependents = more fixed outgoings; minors add a small extra
-    discount as the support obligation runs for years."""
+    # more dependents = more fixed outgoings; minors add a small extra discount
     base_table = {0: 100.0, 1: 82.0, 2: 66.0, 3: 52.0, 4: 40.0}
     base = base_table.get(num_dependents, _clamp(40.0 - 10.0 * (num_dependents - 4), 10.0, 40.0))
     minors = sum(1 for a in dependents_ages if a < 18)
@@ -221,14 +186,8 @@ def score_recent_credit_activity(credit_applications_6m: int) -> tuple[float, st
     return score, f"{n} self-declared credit application(s) in the last 6 months."
 
 
-# ---------- top-level entry point ----------
-
+# entry point: validated profile dict -> total, band, per-category breakdown
 def score_profile(p: dict) -> dict:
-    """Take a validated profile (plain dict of numbers/strings/list) and
-    return total score, risk category, and per-category breakdown.
-
-    Deterministic: identical input dicts always produce identical output.
-    """
     subs: dict[str, tuple[float, str]] = {
         "affordability": score_affordability(
             p["monthly_salary"], p["monthly_mortgage"],
@@ -254,7 +213,7 @@ def score_profile(p: dict) -> dict:
     total = 0.0
     for key, weight in WEIGHTS.items():
         sub_score, note = subs[key]
-        weighted = sub_score * weight / 100.0 * SCALE  # points on the 0-1000 scale
+        weighted = sub_score * weight / 100.0 * SCALE  # points on 0-1000 scale
         total += weighted
         breakdown.append({
             "key": key,

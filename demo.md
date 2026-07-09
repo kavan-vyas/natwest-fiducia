@@ -91,3 +91,32 @@ Full-time NHS nurse living in Birmingham. Managing a household alone with tight 
 - **Grounded** — every answer traces to the real report; it can't invent numbers.
 - **Safe by design** — the AI *collects and advises*; a separate deterministic formula *scores*. The two never mix.
 - **Private** — runs fully local; nothing is sent to a third party.
+
+---
+
+# The Assistant is the Product — Where It Goes Next
+
+The scoring formula is the trust anchor; the **Personal Financial Assistant is the growth engine**. It's the surface customers actually talk to, and it's where the roadmap and the moat live.
+
+## Near-term (weeks)
+- **Voice in as well as out** — speech-to-text so the whole session is hands-free; pairs with the read-aloud already shipped for full accessibility.
+- **Action buttons in the chat** — "Show me a savings plan", "Simulate clearing my card" as one-tap chips, not just free text.
+- **Session summary + email/PDF** — end each chat with a personalised one-page action plan the customer keeps.
+- **Multi-language** — same guidance in the customer's language, on-device.
+
+## Mid-term (months)
+- **What-if simulator** — "If I move £150/month to savings, here's your projected score and buffer in 6/12 months." (Deterministic projection, not a promise — stays inside the safe design.)
+- **Goal tracking** — set a goal (mortgage-ready, debt-free), and the assistant checks in and re-plans over time.
+- **Open Banking hook** — with consent, read real transactions to auto-fill the profile and spot concrete savings ("you're paying for 3 unused subscriptions").
+- **Proactive nudges** — "A credit application in the last 6 months is aging off next month — good time to apply."
+
+## Strategic (the moat)
+- **Advisor-in-the-loop** — hand complex cases to a human adviser with the full context pre-summarised; assistant handles the routine 90%.
+- **Product matching (regulated)** — once compliant, move from "general guidance" to concrete, suitable NatEast products at the right moment.
+- **Fine-tuned domain model** — a smaller, faster, on-brand model tuned on financial-coaching dialogue: cheaper, quicker, more consistent than a general 8B.
+- **Retention & upsell engine** — the assistant becomes the daily-money relationship, driving engagement, cross-sell, and loyalty that a static score never could.
+
+## Why it matters commercially
+- A score is a **one-off number**; an assistant is a **recurring relationship** — the difference between a report and a habit.
+- Every conversation is **first-party, consented financial intent data** — the richest signal a lender can have.
+- Fully **local/private by default** is a genuine differentiator in a market nervous about sending finances to the cloud.

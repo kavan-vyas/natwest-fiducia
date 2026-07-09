@@ -1,18 +1,7 @@
-"""FIDUCIA — shared input schema.
-
-Single source of truth for what the system collects. Both entry modes
-(chat extraction and, later, the manual form) validate against these
-exact models, so the two modes can never validate differently.
-
-`FinancialProfile` is the complete, required record that scoring.py
-consumes. `PartialProfile` carries the same fields and constraints but
-everything optional — it validates the per-turn extractions coming out
-of Ollama, where any subset of fields may arrive.
-
-No demographic / protected-characteristic field exists in this schema.
-"""
-
-# redo
+# shared input schema. one source of truth for what's collected.
+# FinancialProfile = complete required record scoring reads. PartialProfile =
+# same fields all optional, validates per-turn extractions from the model.
+# no demographic field exists here.
 
 import re
 from enum import Enum
@@ -20,8 +9,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-# Gender options offered by the form. Collected and stored for the record
-# only — the scoring engine never receives this value (see scoring.py).
+# gender options for the form. stored, never sent to scoring.
 GENDER_OPTIONS: list[str] = [
     "female", "male", "non_binary", "prefer_to_self_describe", "prefer_not_to_say",
 ]
@@ -30,9 +18,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class Identity(BaseModel):
-    """The two deterministic, uniquely-stored fields (full name + email)
-    plus gender. No demographic value here is ever passed to scoring."""
-
+    # name + email (uniquely stored) plus gender; none of it reaches scoring
     full_name: str = Field(min_length=1, max_length=120)
     email: str = Field(min_length=3, max_length=200)
     gender: str = Field(min_length=1, max_length=40)
@@ -89,9 +75,7 @@ class IncomeVariability(str, Enum):
 
 
 class FinancialProfile(BaseModel):
-    """The complete validated record. scoring.py reads exactly these fields."""
-
-    # --- core inputs from the original brief ---
+    # complete validated record; scoring reads exactly these fields
     monthly_salary: float = Field(ge=0, le=1_000_000, description="Net monthly salary/income")
     current_savings: float = Field(ge=0, le=100_000_000, description="Total current savings")
     monthly_mortgage: float = Field(ge=0, le=1_000_000, description="Monthly mortgage payment (0 if none)")
@@ -99,8 +83,6 @@ class FinancialProfile(BaseModel):
     employment_status: EmploymentStatus
     monthly_credit_card_spending: float = Field(ge=0, le=1_000_000)
     other_monthly_loan_repayments: float = Field(ge=0, le=1_000_000, description="Car loan, student loan, etc.")
-
-    # --- expanded inputs ---
     dependents_ages: list[int] = Field(default_factory=list, description="Approximate ages of dependents")
     employment_sector: str = Field(min_length=1, max_length=100, description="e.g. healthcare, tech, retail")
     job_tenure_years: float = Field(ge=0, le=80, description="Years in current job/status")
@@ -121,8 +103,7 @@ class FinancialProfile(BaseModel):
 
 
 class PartialProfile(BaseModel):
-    """Per-turn extraction: any subset of fields, same constraints as above."""
-
+    # per-turn extraction: any subset, same constraints
     monthly_salary: Optional[float] = Field(default=None, ge=0, le=1_000_000)
     current_savings: Optional[float] = Field(default=None, ge=0, le=100_000_000)
     monthly_mortgage: Optional[float] = Field(default=None, ge=0, le=1_000_000)
@@ -150,10 +131,10 @@ class PartialProfile(BaseModel):
         return v
 
 
-# Field names in the order the conversation should roughly collect them.
+# field names in rough collection order
 ALL_FIELDS: list[str] = list(FinancialProfile.model_fields.keys())
 
-# Human-readable labels for the front end and the report.
+# labels for the front end and report
 FIELD_LABELS: dict[str, str] = {
     "monthly_salary": "Monthly salary",
     "current_savings": "Current savings",
@@ -175,11 +156,7 @@ FIELD_LABELS: dict[str, str] = {
 
 
 def missing_fields(fields: dict) -> list[str]:
-    """Which required fields are still unfilled.
-
-    dependents_ages is only required when num_dependents > 0; when
-    num_dependents == 0 it is auto-set to [] by the caller.
-    """
+    # dependents_ages only required when num_dependents > 0
     missing = []
     for name in ALL_FIELDS:
         if fields.get(name) is None:

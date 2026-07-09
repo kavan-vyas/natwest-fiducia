@@ -1,12 +1,5 @@
-"""FIDUCIA — FastAPI application.
-
-Run:  uvicorn main:app --reload
-Open: http://localhost:8000
-
-Routes orchestrate; they contain no business logic. Conversation logic
-lives in conversation.py, persistence in db.py, scoring in scoring.py,
-and the shared input schema in schema.py.
-"""
+# fiducia fastapi app. routes orchestrate, logic lives in the other modules.
+# run: uvicorn main:app --reload
 
 import csv
 import io
@@ -30,8 +23,7 @@ from schema import (ALL_FIELDS, FIELD_LABELS, GENDER_OPTIONS, FinancialProfile,
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
-    # Preload the LLM so the first user turn is warm, not a ~14s cold load.
-    await conversation.warmup()
+    await conversation.warmup()  # warm the model so first turn isn't a cold load
     yield
 
 
@@ -52,7 +44,7 @@ class IdentifyIn(BaseModel):
 
 class SessionIn(BaseModel):
     user_id: int
-    mode: str = Field(default="new")  # "new" | "continue"
+    mode: str = Field(default="new")  # new | continue
 
 
 class AdviceMsg(BaseModel):
@@ -78,7 +70,7 @@ def _session_status(fields: dict, completed: bool, session_id: str) -> dict:
     }
 
 
-# ---------- pages ----------
+# pages
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -86,7 +78,7 @@ async def index(request: Request):
 
 
 def _report_payload(session_id: str) -> dict | None:
-    """Shared report assembly for the HTML page, the JSON API and CSV export."""
+    # shared by html page, json api and csv export
     record = db.load_structured(session_id)
     if record is None:
         return None
@@ -105,8 +97,7 @@ async def report_json(session_id: str):
     return JSONResponse(payload)
 
 
-# Declared before the HTML route so the ".csv" suffix isn't swallowed by
-# the {session_id} path parameter (which would otherwise match "id.csv").
+# before the html route so ".csv" isn't swallowed by the {session_id} param
 @app.get("/report/{session_id}.csv")
 async def report_csv(session_id: str):
     payload = _report_payload(session_id)
@@ -114,13 +105,13 @@ async def report_csv(session_id: str):
         raise HTTPException(404, "No completed profile for this session yet.")
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["FIDUCIA credit risk report"])
+    w.writerow(["FIDUCIA credit score report"])
     w.writerow(["Session", session_id])
     if payload["user"]:
         w.writerow(["Name", payload["user"]["full_name"]])
         w.writerow(["Email", payload["user"]["email"]])
     w.writerow(["Total score", payload["result"]["total_score"]])
-    w.writerow(["Risk category", payload["result"]["category"]])
+    w.writerow(["Score band", payload["result"]["category"]])
     w.writerow([])
     w.writerow(["Category", "Weight %", "Sub-score", "Weighted points", "Basis"])
     for row in payload["result"]["breakdown"]:
@@ -144,7 +135,7 @@ async def report(request: Request, session_id: str):
     return templates.TemplateResponse(request, "report.html", {"request": request, **payload})
 
 
-# ---------- API ----------
+# api
 
 @app.get("/api/meta")
 async def meta():
@@ -198,10 +189,7 @@ async def resume_session(session_id: str):
 
 @app.post("/api/advice")
 async def advice(body: AdviceIn):
-    """Post-report Personal Financial Assistant. Only available once a report
-    exists; the reply is streamed as plain-text chunks so the UI renders tokens
-    live. Grounded in the report's real scores and guardrailed in
-    conversation.advice_stream."""
+    # post-report assistant. needs a finished report. reply is streamed.
     payload = _report_payload(body.session_id)
     if payload is None:
         raise HTTPException(404, "No completed report for this session yet.")
@@ -236,19 +224,18 @@ async def chat(body: ChatIn):
         raise HTTPException(502, f"Ollama unavailable: {exc}") from exc
 
     fields.update(turn["accepted"])
-    # dependents_ages is meaningless with zero dependents; auto-fill it
-    if fields.get("num_dependents") == 0:
+    if fields.get("num_dependents") == 0:  # no dependents -> no ages needed
         fields["dependents_ages"] = []
 
     reply = turn["reply"]
 
     completed = False
     if not missing_fields(fields):
-        # Full validation through the same schema the manual form will use.
+        # full validation through the same schema before storing
         profile = FinancialProfile(**fields)
         record = profile.model_dump()
         for key in ("employment_status", "housing_status", "savings_trend", "income_variability"):
-            record[key] = record[key].value  # enum -> plain string for storage
+            record[key] = record[key].value  # enum -> str
         db.insert_structured(body.session_id, record)
         completed = True
         reply += ("\n\nThat's everything I need. Your report is ready: "

@@ -1,16 +1,6 @@
-"""FIDUCIA — persistence layer.
-
-All state lives in one permanent SQLite file on disk. Nothing is held in
-in-process memory between requests, so conversations survive a server
-restart and concurrent sessions never collide.
-
-Four tables:
-  users             — deterministic identity (full name + email), gender
-                      stored but NEVER read by scoring; keyed uniquely
-  sessions          — live conversation memory, keyed by session id
-  conversation_log  — raw append-only record of every exchange (audit)
-  structured_inputs — clean validated data; the ONLY table scoring reads
-"""
+# persistence. one sqlite file on disk, nothing kept in process memory.
+# tables: users (identity), sessions (live chat), conversation_log (audit),
+# structured_inputs (validated data, the only table scoring reads).
 
 import json
 import sqlite3
@@ -43,7 +33,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 full_name TEXT NOT NULL,
                 email TEXT NOT NULL,
-                gender TEXT NOT NULL,        -- stored for the record, NEVER scored
+                gender TEXT NOT NULL,        -- stored, never scored
                 created_at REAL NOT NULL,
                 UNIQUE (full_name, email)
             )
@@ -51,11 +41,11 @@ def init_db() -> None:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT PRIMARY KEY,
-                user_id INTEGER,             -- FK -> users.id (null for legacy)
+                user_id INTEGER,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
-                fields TEXT NOT NULL,        -- JSON: field name -> value or null
-                messages TEXT NOT NULL,      -- JSON: [{role, content}, ...]
+                fields TEXT NOT NULL,        -- json: field -> value or null
+                messages TEXT NOT NULL,      -- json: [{role, content}, ...]
                 completed INTEGER NOT NULL DEFAULT 0
             )
         """)
@@ -64,7 +54,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
                 ts REAL NOT NULL,
-                role TEXT NOT NULL,          -- 'user' | 'assistant' | 'system'
+                role TEXT NOT NULL,
                 content TEXT NOT NULL
             )
         """)
@@ -77,7 +67,7 @@ def init_db() -> None:
                 current_savings REAL NOT NULL,
                 monthly_mortgage REAL NOT NULL,
                 num_dependents INTEGER NOT NULL,
-                dependents_ages TEXT NOT NULL,      -- JSON list of ints
+                dependents_ages TEXT NOT NULL,      -- json list of ints
                 employment_status TEXT NOT NULL,
                 employment_sector TEXT NOT NULL,
                 job_tenure_years REAL NOT NULL,
@@ -93,10 +83,10 @@ def init_db() -> None:
         """)
 
 
-# ---------- users (deterministic identity) ----------
+# users
 
 def find_user(full_name: str, email: str) -> dict | None:
-    """Case-insensitive exact match on the (full name, email) pair."""
+    # case-insensitive match on the (name, email) pair
     with _connect() as conn:
         row = conn.execute(
             "SELECT * FROM users WHERE full_name = ? COLLATE NOCASE "
@@ -107,8 +97,6 @@ def find_user(full_name: str, email: str) -> dict | None:
 
 
 def get_or_create_user(full_name: str, email: str, gender: str) -> dict:
-    """Return the existing user for this (name, email), or create one.
-    Gender is (re)stored but is never consumed by scoring."""
     existing = find_user(full_name, email)
     with _connect() as conn:
         if existing:
@@ -140,8 +128,7 @@ def user_for_session(session_id: str) -> dict | None:
 
 
 def latest_profile_for_user(user_id: int) -> dict | None:
-    """Most recent completed structured profile across this user's sessions.
-    Used to pre-seed an update session so only changes need re-stating."""
+    # most recent completed profile, used to pre-seed an update session
     with _connect() as conn:
         row = conn.execute(
             "SELECT si.* FROM structured_inputs si "
@@ -156,7 +143,7 @@ def latest_profile_for_user(user_id: int) -> dict | None:
     return record
 
 
-# ---------- sessions (live persistent memory) ----------
+# sessions
 
 def create_session(session_id: str, fields: dict, messages: list,
                    user_id: int | None = None, completed: bool = False) -> None:
@@ -193,7 +180,7 @@ def save_session(session_id: str, fields: dict, messages: list, completed: bool)
         )
 
 
-# ---------- conversation_log (audit trail) ----------
+# conversation_log
 
 def log_message(session_id: str, role: str, content: str) -> None:
     with _connect() as conn:
@@ -203,11 +190,9 @@ def log_message(session_id: str, role: str, content: str) -> None:
         )
 
 
-# ---------- structured_inputs (the only thing scoring reads) ----------
+# structured_inputs
 
 def insert_structured(session_id: str, profile: dict) -> None:
-    """Write a completed, validated profile. profile values are plain
-    Python types (enums already serialised to their string values)."""
     record = dict(profile)
     record["dependents_ages"] = json.dumps(record["dependents_ages"])
     cols = ", ".join(_STRUCTURED_COLUMNS)
