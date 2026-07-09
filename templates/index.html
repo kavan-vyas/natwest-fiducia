@@ -325,31 +325,56 @@
     details.nums summary { cursor: pointer; color: var(--ink-soft); font-size: .85rem; }
     @media (max-width: 560px) { .crow { grid-template-columns: 116px 1fr 40px; } }
 
-    /* ---------- advisor chatbot ---------- */
-    #adv-fab { position: fixed; left: 18px; bottom: 18px; z-index: 55; display: none; align-items: center;
-      gap: .4rem; background: var(--ink); color: var(--bg); border: none; border-radius: 999px;
-      padding: .6rem .95rem; font: 600 .85rem var(--font-body, sans-serif); cursor: pointer;
-      box-shadow: 0 6px 20px rgba(0,0,0,.24); }
+    /* ---------- Personal Financial Assistant chatbot ---------- */
+    #adv-fab { position: fixed; left: 20px; bottom: 20px; z-index: 55; display: none; align-items: center;
+      gap: .5rem; background: var(--lime); color: #14210a; border: none; border-radius: 999px;
+      padding: .8rem 1.2rem; font: 700 .92rem var(--font-body, sans-serif); cursor: pointer;
+      box-shadow: 0 8px 26px rgba(0,0,0,.28); }
     #adv-fab.show { display: inline-flex; }
-    #adv-fab .g { color: var(--lime); font-weight: 800; }
-    #adv-panel { position: fixed; left: 18px; bottom: 18px; z-index: 56;
-      width: min(360px, calc(100vw - 36px)); height: min(500px, calc(100vh - 36px));
+    #adv-fab:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    #adv-fab .g { font-size: 1.15rem; line-height: 1; }
+    #adv-fab .pulse { width: 9px; height: 9px; border-radius: 50%; background: #14210a; box-shadow: 0 0 0 0 rgba(20,33,10,.5); animation: advpulse 2s infinite; }
+    @keyframes advpulse { 0%{box-shadow:0 0 0 0 rgba(20,33,10,.45);} 70%{box-shadow:0 0 0 8px rgba(20,33,10,0);} 100%{box-shadow:0 0 0 0 rgba(20,33,10,0);} }
+
+    #adv-panel { position: fixed; right: 20px; bottom: 20px; z-index: 56;
+      width: 380px; height: 520px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px);
+      min-width: 280px; min-height: 92px;
       background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
-      box-shadow: 0 16px 44px rgba(0,0,0,.3); display: none; flex-direction: column; overflow: hidden; }
+      box-shadow: 0 18px 50px rgba(0,0,0,.34); display: none; flex-direction: column; overflow: hidden;
+      resize: both; }
     #adv-panel.show { display: flex; }
-    .adv-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
-    .adv-head small { display: block; color: var(--ink-soft); font-size: .68rem; }
-    .adv-head button { background: none; border: none; font-size: 1.4rem; line-height: 1; color: var(--ink-soft); cursor: pointer; }
-    .adv-log { flex: 1; overflow-y: auto; padding: .9rem; display: flex; flex-direction: column; gap: .55rem; }
-    .adv-msg { max-width: 86%; padding: .5rem .75rem; border-radius: 12px; font-size: .85rem; line-height: 1.45; white-space: pre-wrap; }
+    #adv-panel.collapsed { height: auto !important; min-height: 0; resize: none; }
+    #adv-panel.collapsed .adv-log, #adv-panel.collapsed .adv-input, #adv-panel.collapsed .adv-note { display: none; }
+    #adv-panel.dragging { transition: none; user-select: none; }
+    .adv-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+      padding: .7rem .5rem .7rem 1rem; border-bottom: 1px solid var(--line); cursor: grab; }
+    .adv-head.grabbing { cursor: grabbing; }
+    .adv-head .ttl { min-width: 0; }
+    .adv-head .ttl b { display: block; font-size: .92rem; }
+    .adv-head small { display: block; color: var(--ink-soft); font-size: .66rem; }
+    .adv-head .btns { display: flex; align-items: center; flex: none; }
+    .adv-head .btns button { background: none; border: none; font-size: 1.15rem; line-height: 1; color: var(--ink-soft); cursor: pointer; padding: .25rem .35rem; border-radius: 8px; }
+    .adv-head .btns button:hover { background: var(--bg); color: var(--ink); }
+    .adv-log { flex: 1; overflow-y: auto; padding: .9rem; display: flex; flex-direction: column; gap: .6rem; }
+    .adv-msg { max-width: 88%; padding: .55rem .8rem; border-radius: 12px; font-size: .87rem; line-height: 1.5; overflow-wrap: anywhere; }
     .adv-msg.bot { background: var(--bg); border: 1px solid var(--line); align-self: flex-start; border-bottom-left-radius: 3px; }
-    .adv-msg.me { background: var(--lime); color: #1a1c18; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .adv-msg.me { background: var(--lime); color: #14210a; align-self: flex-end; border-bottom-right-radius: 3px; white-space: pre-wrap; }
     .adv-msg.err { background: #fdecea; color: #c62828; align-self: flex-start; }
+    /* markdown inside bot bubbles */
+    .adv-msg.bot h3 { font-size: .9rem; margin: .5rem 0 .25rem; font-weight: 700; }
+    .adv-msg.bot h3:first-child { margin-top: 0; }
+    .adv-msg.bot p { margin: .35rem 0; }
+    .adv-msg.bot p:first-child { margin-top: 0; } .adv-msg.bot p:last-child { margin-bottom: 0; }
+    .adv-msg.bot ul, .adv-msg.bot ol { margin: .35rem 0; padding-left: 1.2rem; }
+    .adv-msg.bot li { margin: .15rem 0; }
+    .adv-msg.bot code { background: var(--surface-2); border-radius: 5px; padding: .05rem .3rem; font-size: .82em; }
+    .adv-msg.bot strong { font-weight: 700; }
+    .adv-msg.bot a { color: var(--lime); text-decoration: underline; }
     .adv-input { display: flex; gap: .5rem; padding: .7rem; border-top: 1px solid var(--line); }
     .adv-input input { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font: 400 .85rem var(--font-body, sans-serif); background: var(--bg); color: var(--ink); }
-    .adv-input button { background: var(--lime); color: #1a1c18; border: none; border-radius: 10px; padding: 0 .9rem; cursor: pointer; font-weight: 700; }
+    .adv-input button { background: var(--lime); color: #14210a; border: none; border-radius: 10px; padding: 0 .9rem; cursor: pointer; font-weight: 700; }
     .adv-input button:disabled { opacity: .5; cursor: default; }
-    .adv-note { padding: .45rem .9rem .7rem; font-size: .66rem; color: var(--ink-soft); text-align: center; }
+    .adv-note { padding: .45rem .9rem .7rem; font-size: .64rem; color: var(--ink-soft); text-align: center; }
 
     /* ---------- accessibility drawer ---------- */
     .drawer-back { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity var(--anim); z-index: 60; }
@@ -515,21 +540,24 @@
     </section>
   </main>
 
-  <!-- ================= ADVISOR CHATBOT ================= -->
-  <button id="adv-fab" aria-label="Open advisor" title="Get personalised advice">
-    <span class="g">[£]</span> Advisor
+  <!-- ================= PERSONAL FINANCIAL ASSISTANT ================= -->
+  <button id="adv-fab" aria-label="Open Personal Financial Assistant" title="Personal Financial Assistant">
+    <span class="pulse"></span><span class="g">💬</span> Personal Financial Assistant
   </button>
-  <div id="adv-panel" role="dialog" aria-label="Fiducia advisor">
-    <div class="adv-head">
-      <div><b>Fiducia Advisor</b><small>Advice on your report</small></div>
-      <button id="adv-close" aria-label="Close">×</button>
+  <div id="adv-panel" role="dialog" aria-label="Personal Financial Assistant">
+    <div class="adv-head" id="adv-head">
+      <div class="ttl"><b>Personal Financial Assistant</b><small>Your one-to-one money guide</small></div>
+      <div class="btns">
+        <button id="adv-collapse" aria-label="Collapse" title="Collapse">▾</button>
+        <button id="adv-close" aria-label="Close" title="Close">×</button>
+      </div>
     </div>
     <div id="adv-log" class="adv-log"></div>
     <form id="adv-form" class="adv-input">
-      <input id="adv-text" type="text" autocomplete="off" maxlength="2000" placeholder="e.g. how can I improve my score?">
+      <input id="adv-text" type="text" autocomplete="off" maxlength="2000" placeholder="Ask anything about your money…">
       <button type="submit" aria-label="Send">➤</button>
     </form>
-    <div class="adv-note">Educational prototype — general guidance, not financial advice.</div>
+    <div class="adv-note">Educational guidance, not regulated financial advice.</div>
   </div>
 
   <!-- ================= ACCESSIBILITY DRAWER ================= -->
@@ -646,6 +674,32 @@
       u.rate = 1; u.pitch = 1; window.speechSynthesis.speak(u);
     }
 
+    // Explicit "read the report aloud" — runs on user click regardless of the
+    // TTS toggle. Toggles: click to start, click again to stop.
+    let reportUttering = false;
+    function speakReport(text, btn) {
+      if (!window.speechSynthesis) { alert("Text-to-speech isn't available in this browser."); return; }
+      if (reportUttering) { window.speechSynthesis.cancel(); return; }  // 'end' handler resets UI
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1; u.pitch = 1;
+      u.onend = u.onerror = () => { reportUttering = false; if (btn) btn.textContent = "🔊 Read aloud"; };
+      reportUttering = true; if (btn) btn.textContent = "⏹ Stop";
+      window.speechSynthesis.speak(u);
+    }
+    function reportSpeech(r, name) {
+      const parts = [
+        `${name ? name + ", here is" : "Here is"} your credit risk report.`,
+        `Your score is ${Math.round(r.total_score)} out of 1000, in the ${r.category} band.`,
+        r.category_blurb,
+        "Here is how each factor scored, out of 100.",
+      ];
+      [...r.breakdown].sort((a, b) => a.sub_score - b.sub_score).forEach(row => {
+        parts.push(`${row.label}: ${Math.round(row.sub_score)}. ${row.note}`);
+      });
+      return parts.join(" ");
+    }
+
     // ---------- drawer ----------
     const openDrawer = (o) => { $("drawer").classList.toggle("open", o); $("drawerBack").classList.toggle("open", o); };
     $("a11yBtn").addEventListener("click", () => openDrawer(true));
@@ -663,7 +717,7 @@
       // Advisor is contextual to the finished report: only on the results tab.
       const onResults = name === "results";
       const fab = $("adv-fab"), panel = $("adv-panel");
-      if (!onResults) { fab.classList.remove("show"); panel.classList.remove("show"); }
+      if (!onResults) { fab.classList.remove("show"); panel.classList.remove("show"); window.speechSynthesis?.cancel(); }
       else if (reportLoaded && !panel.classList.contains("show")) { fab.classList.add("show"); }
     }
     tabs.forEach(t => $("tab-" + t).addEventListener("click", (e) => {
@@ -960,6 +1014,7 @@
               <span class="dot"></span><span>${riskIcon(r.category_key)} ${r.category} · ${r.band_low}–${r.band_high}</span>
             </div>
             <div class="result-actions">
+              <button class="primary" id="readAloud" type="button">🔊 Read aloud</button>
               <a class="primary" href="/report/${sid}.csv" style="text-decoration:none;">⭳ Export CSV</a>
               <a class="primary ghost" href="/report/${sid}" target="_blank" style="text-decoration:none;">Open full report ↗</a>
             </div>
@@ -985,63 +1040,147 @@
           <p class="hint" style="margin-top:1.4rem;">Simplified coursework simulation — not a real credit assessment. Self-declared fields are unverified and down-weighted. The score is a fixed, auditable formula; the assistant never influences it. Gender is stored but never scored.</p>
         </div>`;
 
+      const ra = $("readAloud");
+      if (ra) ra.addEventListener("click", () => speakReport(reportSpeech(r, name), ra));
       setupAdvisor(sid);
     }
 
-    // ---------- post-report advisor chatbot ----------
+    // ---------- Personal Financial Assistant ----------
+    // Minimal, safe Markdown -> HTML (escape first, then a small subset). Content
+    // comes from the local model; we still escape to be safe, then render
+    // headings, bold, italics, inline code, links, and bullet/numbered lists.
+    function mdToHtml(src) {
+      let s = escapeHtml(String(src).trim());
+      const inline = (t) => t
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
+        .replace(/(^|[^_])_([^_]+)_/g, "$1<em>$2</em>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      const lines = s.split(/\r?\n/);
+      let html = "", list = null;
+      const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+      for (let raw of lines) {
+        const line = raw.trim();
+        if (!line) { closeList(); continue; }
+        let m;
+        if ((m = line.match(/^#{1,6}\s+(.*)$/))) { closeList(); html += `<h3>${inline(m[1])}</h3>`; }
+        else if ((m = line.match(/^[-*+]\s+(.*)$/))) { if (list !== "ul") { closeList(); list = "ul"; html += "<ul>"; } html += `<li>${inline(m[1])}</li>`; }
+        else if ((m = line.match(/^\d+[.)]\s+(.*)$/))) { if (list !== "ol") { closeList(); list = "ol"; html += "<ol>"; } html += `<li>${inline(m[1])}</li>`; }
+        else { closeList(); html += `<p>${inline(line)}</p>`; }
+      }
+      closeList();
+      return html;
+    }
+
     let advReady = false;
     function setupAdvisor(sid) {
-      const fab = $("adv-fab"), panel = $("adv-panel"), log = $("adv-log"),
-            form = $("adv-form"), text = $("adv-text");
+      const fab = $("adv-fab"), panel = $("adv-panel"), head = $("adv-head"),
+            log = $("adv-log"), form = $("adv-form"), text = $("adv-text");
       const sendBtn = form.querySelector("button");
       fab.classList.add("show");
       if (advReady) return;   // wire listeners once
       advReady = true;
       const history = [];
-      let greeted = false;
+      let greeted = false, moved = false;
 
-      // Backstop: strip any Markdown/LaTeX the model emits so replies read as
-      // clean plain text (the panel renders textContent, never HTML).
-      function plain(s) {
-        return String(s)
-          .replace(/\*\*(.*?)\*\*/g, "$1").replace(/(^|\s)[*_]([^*_]+)[*_]/g, "$1$2")
-          .replace(/`([^`]*)`/g, "$1")
-          .replace(/^\s{0,3}#{1,6}\s*/gm, "")
-          .replace(/\\\(|\\\)|\\\[|\\\]|\$/g, "")
-          .replace(/^\s*[*+]\s+/gm, "- ")
-          .trim();
-      }
       function add(role, content) {
         const el = document.createElement("div");
         el.className = "adv-msg " + (role === "user" ? "me" : role === "error" ? "err" : "bot");
-        el.textContent = role === "bot" ? plain(content) : content;
+        if (role === "bot") el.innerHTML = mdToHtml(content); else el.textContent = content;
         log.appendChild(el); log.scrollTop = log.scrollHeight;
         return el;
       }
+      function setBot(el, content) { el.className = "adv-msg bot"; el.innerHTML = mdToHtml(content); log.scrollTop = log.scrollHeight; }
+
       fab.addEventListener("click", () => {
         panel.classList.add("show"); fab.classList.remove("show"); text.focus();
         if (!greeted) { greeted = true;
-          add("bot", "Hi! I can talk through your report — why a factor scored the way it did, and practical ways to improve it. What would you like to know?");
+          add("bot", "Hi — I'm your **Personal Financial Assistant**. I've read your report. Tell me a bit about your situation (your job, goals, what's on your mind) and I'll give you specific, one-to-one guidance — improving your score, budgeting, debt, saving and investing.");
         }
       });
-      $("adv-close").addEventListener("click", () => {
-        panel.classList.remove("show"); fab.classList.add("show");
+      $("adv-close").addEventListener("click", () => { panel.classList.remove("show", "collapsed"); fab.classList.add("show"); });
+      $("adv-collapse").addEventListener("click", () => {
+        const c = panel.classList.toggle("collapsed");
+        $("adv-collapse").textContent = c ? "▴" : "▾";
+        $("adv-collapse").title = c ? "Expand" : "Collapse";
       });
+
+      // ----- drag with snap to the nearest 1/8 of the nearest edge -----
+      const M = 16;
+      function snap() {
+        const r = panel.getBoundingClientRect();
+        const W = innerWidth, H = innerHeight, w = r.width, h = r.height;
+        const dL = r.left, dR = W - r.right, dT = r.top, dB = H - r.bottom;
+        const min = Math.min(dL, dR, dT, dB);
+        const eighth = (avail) => (i) => Math.max(M, Math.min(avail, M + Math.round(((i - M) / (avail - M)) * 8) / 8 * (avail - M)));
+        let left, top;
+        if (min === dL || min === dR) {                 // snap to a vertical edge
+          left = (min === dL) ? M : W - w - M;
+          top = eighth(H - h - M)(r.top);
+        } else {                                        // snap to a horizontal edge
+          top = (min === dT) ? M : H - h - M;
+          left = eighth(W - w - M)(r.left);
+        }
+        panel.style.left = Math.round(left) + "px";
+        panel.style.top = Math.round(top) + "px";
+        panel.style.right = "auto"; panel.style.bottom = "auto";
+      }
+      let drag = null;
+      head.addEventListener("pointerdown", (e) => {
+        if (e.target.closest("button")) return;         // let collapse/close work
+        const r = panel.getBoundingClientRect();
+        // switch from bottom/right anchoring to explicit top/left before dragging
+        panel.style.left = r.left + "px"; panel.style.top = r.top + "px";
+        panel.style.right = "auto"; panel.style.bottom = "auto";
+        drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        moved = true; panel.classList.add("dragging"); head.classList.add("grabbing");
+        head.setPointerCapture(e.pointerId);
+      });
+      head.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        const w = panel.offsetWidth, h = panel.offsetHeight;
+        let left = e.clientX - drag.dx, top = e.clientY - drag.dy;
+        left = Math.max(M, Math.min(innerWidth - w - M, left));
+        top = Math.max(M, Math.min(innerHeight - h - M, top));
+        panel.style.left = left + "px"; panel.style.top = top + "px";
+      });
+      const endDrag = (e) => {
+        if (!drag) return;
+        drag = null; panel.classList.remove("dragging"); head.classList.remove("grabbing");
+        try { head.releasePointerCapture(e.pointerId); } catch {}
+        snap();
+      };
+      head.addEventListener("pointerup", endDrag);
+      head.addEventListener("pointercancel", endDrag);
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const m = text.value.trim(); if (!m) return;
         add("user", m); history.push({ role: "user", content: m });
         text.value = ""; sendBtn.disabled = true;
-        const thinking = add("bot", "…");
+        const thinking = add("bot", "_thinking…_");
         try {
           const res = await fetch("/api/advice", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ session_id: sid, message: m, history: history.slice(0, -1) })
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "Request failed");
-          thinking.textContent = plain(data.reply);
-          history.push({ role: "assistant", content: data.reply });
+          if (!res.ok || !res.body) {
+            let detail = "Request failed";
+            try { detail = (await res.json()).detail || detail; } catch {}
+            throw new Error(detail);
+          }
+          // Stream tokens in and re-render Markdown live so it feels responsive.
+          const reader = res.body.getReader(), dec = new TextDecoder();
+          let acc = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            acc += dec.decode(value, { stream: true });
+            setBot(thinking, acc);
+          }
+          setBot(thinking, acc || "…");
+          history.push({ role: "assistant", content: acc });
         } catch (err) {
           thinking.className = "adv-msg err";
           thinking.textContent = "Sorry — " + err.message;

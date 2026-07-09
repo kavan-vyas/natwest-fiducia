@@ -15,7 +15,8 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import (HTMLResponse, JSONResponse, PlainTextResponse,
+                              StreamingResponse)
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError
 
@@ -197,19 +198,24 @@ async def resume_session(session_id: str):
 
 @app.post("/api/advice")
 async def advice(body: AdviceIn):
-    """Post-report advisor chat. Only available once a report exists; every
-    reply is grounded in that report's real scores and guardrailed in
-    conversation.advice_turn."""
+    """Post-report Personal Financial Assistant. Only available once a report
+    exists; the reply is streamed as plain-text chunks so the UI renders tokens
+    live. Grounded in the report's real scores and guardrailed in
+    conversation.advice_stream."""
     payload = _report_payload(body.session_id)
     if payload is None:
         raise HTTPException(404, "No completed report for this session yet.")
     history = [m.model_dump() for m in body.history]
-    try:
-        reply = await conversation.advice_turn(
-            payload["result"], payload["profile"], history, body.message)
-    except httpx.HTTPError as exc:
-        raise HTTPException(502, f"Ollama unavailable: {exc}") from exc
-    return {"reply": reply}
+
+    async def gen():
+        try:
+            async for piece in conversation.advice_stream(
+                    payload["result"], payload["profile"], history, body.message):
+                yield piece
+        except httpx.HTTPError as exc:
+            yield f"\n\n_(The assistant is unavailable right now: {exc})_"
+
+    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
 
 
 @app.post("/api/chat")

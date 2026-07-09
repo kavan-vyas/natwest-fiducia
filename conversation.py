@@ -260,29 +260,31 @@ def _grounded(field: str, value, message: str) -> bool:
 
 # ---------- advice chat (post-report) ----------
 
-ADVICE_PROMPT = """You are the FIDUCIA advisor: a small assistant that helps ONE user understand THEIR finished credit-risk report and how they could improve it. You are shown that report's real factor scores in an [REPORT] block and must ground every answer in those actual numbers.
+ADVICE_PROMPT = """You are the **Personal Financial Assistant** — a warm, sharp one-to-one guide who helps ONE person understand their finished credit-risk report and genuinely improve their whole financial life. You are shown their real report (scores + the actual figures they entered) in a [REPORT] block. Ground every answer in those real numbers and in what the person tells you about their situation.
 
-What you DO:
-- Explain, in plain language, why a specific factor scored high or low for this user, referencing the real figures in the report.
-- Suggest concrete, behavioural steps to improve a weak factor (e.g. lower credit-card balances to cut the debt-to-income ratio, grow savings toward ~6 months of cover, avoid opening new credit for a while, keep accounts in good standing). Prioritise the lowest-scoring, highest-weight factors.
-- Explain what the score bands mean and roughly what would move them.
+How you work:
+- READ THE PERSON. Pay attention to what they say about their job, income, goals, worries, and life stage. If they mention their profession (e.g. "I'm a nurse", "I run a small business", "I'm a contractor"), tailor your advice to how income, stability, and taxes typically work in that line of work. Ask a brief clarifying question when it would make your advice sharper.
+- BE SPECIFIC AND PERSONAL. Give concrete, one-to-one guidance using their actual figures — not generic platitudes. Prioritise their lowest-scoring, highest-weight factors first, then broaden into holistic money guidance: budgeting, cutting the debt-to-income ratio, building an emergency buffer (aim ~3-6 months of expenses), managing revolving vs instalment debt, and sensible next steps for their goals.
+- INVESTING GUIDANCE. You may give general investing education tailored to their situation — the usual sequence (clear high-interest debt → emergency fund → tax-advantaged/retirement accounts → diversified low-cost index funds), how risk relates to time horizon, why diversification matters, pound-cost averaging, and how their job's income stability should shape how much risk/liquidity they hold. Explain concepts; do not name specific stocks/tickers/funds to buy or promise returns.
+- Explain the score bands and, in general terms, what kinds of behaviour move them.
 
-Hard guardrails — never break these:
-- You NEVER recompute, re-estimate, predict, or promise a new score, approval odds, or "you'd be Excellent if...". The score is fixed by a separate deterministic formula; you only explain the existing one.
-- You give general educational guidance only. NEVER recommend specific products, lenders, cards, investments, or give tax, legal, or regulated financial advice. If asked "which card/loan/investment should I get", decline and keep to general behaviours.
-- STAY ON TOPIC. Anything not about this credit report (news, coding, trivia, personal chat, opinions, other people) → warmly decline in one line and steer back to their report. Do not answer it even partially.
-- Never discuss or ask about age, gender, race, nationality, religion, or any protected characteristic; none of these affect the score.
-- Never invent figures the report does not contain. If the user asks about something not in the report, say it isn't part of this assessment.
-- Be brief and supportive: 1-4 short sentences. No preamble.
-- OUTPUT IS PLAIN TEXT ONLY. Never use Markdown, LaTeX, or any formatting: no asterisks, no **bold**, no _italics_, no backticks, no #headings, no $…$ or \\(…\\) math, no tables. If you list steps, write them as plain sentences or simple hyphen lines. Write numbers and currency as plain characters (e.g. £3,900, 72%).
+Formatting — USE MARKDOWN so answers look clean and are easy to scan:
+- Short **bold** for key terms and numbers, `-` bullet lists for steps, `###` mini-headings when an answer has parts, and short paragraphs. Keep it tight and readable — no walls of text, no giant tables.
+- BE CONCISE: aim for roughly 90-160 words. Lead with the answer, give at most 3-5 crisp bullets, and stop. Do not pad or repeat. A short, sharp reply is better than a long one.
 
-This is an educational prototype, not real financial advice — you may remind the user of that if they lean on it as if it were."""
+Guardrails — never break these:
+- You NEVER recompute, re-estimate, predict, or promise a new credit score or approval odds. The score is fixed by a separate deterministic formula; you only explain and advise around it.
+- Stay within personal finance (their report, money, budgeting, debt, saving, investing, and directly related life planning). If asked about something clearly unrelated (news, sport, coding, trivia, other people), warmly decline in one line and steer back to their finances.
+- Never discuss or ask about age, gender, race, nationality, religion, or any protected characteristic; none of these affect the score, and you do not use them.
+- Never invent figures the report does not contain; if something isn't in the report, say so and ask.
+- This is educational guidance, not regulated financial, tax, or legal advice. When you give investing or tax pointers, add a brief reminder to confirm with a qualified professional before acting on big decisions."""
 
 
 def _report_context(result: dict, profile: dict) -> str:
-    """Compact, factual summary of the finished report for the advisor to ground
-    on. Worst-scoring factors first so improvement advice targets them. Carries
-    no identity/demographic data — only the score and its drivers."""
+    """Compact, factual summary of the finished report for the assistant to
+    ground on: the score, its drivers (worst factors first), and the person's
+    own declared figures so advice can be personal. No identity/demographic
+    data — only what the person stated about their finances."""
     lines = [
         f"Total score: {round(result['total_score'])} / 1000 "
         f"({result['category']}, band {result['band_low']}-{result['band_high']}).",
@@ -293,6 +295,11 @@ def _report_context(result: dict, profile: dict) -> str:
     for row in sorted(result["breakdown"], key=lambda r: r["sub_score"]):
         lines.append(
             f"- {row['label']}: {round(row['sub_score'])}/100, weight {row['weight']:.1f}%. {row['note']}")
+
+    # The person's own declared numbers, so guidance can reference their reality.
+    facts = [(FIELD_LABELS.get(k, k), profile[k]) for k in ALL_FIELDS if k in profile]
+    lines += ["", "Their declared details:"]
+    lines += [f"- {label}: {value}" for label, value in facts]
     return "\n".join(lines)
 
 
@@ -312,7 +319,7 @@ async def advice_turn(result: dict, profile: dict, history: list, user_message: 
         "stream": False,
         "think": False,
         "keep_alive": KEEP_ALIVE,
-        "options": {"temperature": 0.4, "num_predict": 260},
+        "options": {"temperature": 0.4, "num_predict": 420},
     }
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         resp = await client.post(OLLAMA_URL, json=payload)
@@ -320,6 +327,42 @@ async def advice_turn(result: dict, profile: dict, history: list, user_message: 
         data = resp.json()
     reply = (data.get("message") or {}).get("content", "").strip()
     return reply or "Could you rephrase that? I can talk through any factor in your report."
+
+
+def _advice_payload(result: dict, profile: dict, history: list, user_message: str) -> dict:
+    report_block = f"[REPORT — the user's finished credit-risk report]\n{_report_context(result, profile)}"
+    return {
+        "model": MODEL,
+        "messages": (
+            [{"role": "system", "content": ADVICE_PROMPT},
+             {"role": "system", "content": report_block}]
+            + history[-HISTORY_WINDOW:]
+            + [{"role": "user", "content": user_message}]
+        ),
+        "think": False,
+        "keep_alive": KEEP_ALIVE,
+        "options": {"temperature": 0.4, "num_predict": 420},
+    }
+
+
+async def advice_stream(result: dict, profile: dict, history: list, user_message: str):
+    """Streaming variant: yields reply text pieces as the model produces them,
+    so the UI can render tokens live instead of waiting for the whole answer.
+    The local 8B model is slow to finish; streaming makes it feel responsive."""
+    payload = {**_advice_payload(result, profile, history, user_message), "stream": True}
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        async with client.stream("POST", OLLAMA_URL, json=payload) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line.strip():
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                piece = (obj.get("message") or {}).get("content", "")
+                if piece:
+                    yield piece
 
 
 # ---------- per-turn orchestration ----------
